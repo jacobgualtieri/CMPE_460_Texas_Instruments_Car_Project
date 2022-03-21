@@ -18,6 +18,8 @@
 #include "ADC14.h"
 #include "ControlPins.h"
 
+#define USE_OLED
+
 // line stores the current array of camera data
 uint16_t line[128];
 BOOLEAN g_sendData;
@@ -50,6 +52,12 @@ int main(void){
     /* Initializations */
     DisableInterrupts();
 
+    #ifdef USE_OLED
+        OLED_Init();
+	    OLED_display_on();
+	    OLED_display_clear();
+	    OLED_display_on();
+    #endif
     LED1_Init();
     LED2_Init();
     INIT_Camera();
@@ -62,8 +70,12 @@ int main(void){
 			LED1_On();
 			for (i = 0; i < 128; i++){
 
+                #ifdef USE_OLED
+                    // render camera data onto the OLED display
+                    OLED_DisplayCameraData(line);
+                #endif
+
                 // TODO: Parse camera data (line)
-				//sprintf(str,"%i\n\r", line[i]);
                 
 			}
 			g_sendData = FALSE;
