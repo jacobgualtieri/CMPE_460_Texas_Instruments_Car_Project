@@ -65,7 +65,6 @@ int main(void){
                 // TODO: Parse camera data (line)
 				//sprintf(str,"%i\n\r", line[i]);
                 
-				uart0_put(str);
 			}
 			g_sendData = FALSE;
 			LED1_Off();
