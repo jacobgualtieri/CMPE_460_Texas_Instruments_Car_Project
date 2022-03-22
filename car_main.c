@@ -26,6 +26,7 @@ extern unsigned char OLED_clr_data[1024];
 extern unsigned char OLED_TEXT_ARR[1024];
 extern unsigned char OLED_GRAPH_ARR[1024];
 uint16_t line[128];
+uint16_t avg_line[128];
 BOOLEAN g_sendData;
 
 /**
@@ -58,24 +59,36 @@ void INIT_Camera(void){
 	ADC0_InitSWTriggerCh6();
 }
 
-double average(BOOLEAN side, uint16_t* line_data){
+void average(uint16_t* line_data, uint16_t* avg_line_data){
     int j = 0;
-    int offset = 0;
-    unsigned long accum = 0;
-    double avg = 0.0;
+    unsigned long accum_left = 0;
+    unsigned long accum_right = 0;
 
-    offset = (side == 0) ? 0 : 64;
-
-    for (j = offset; j < (64+offset); j++){
-        accum += line_data[j];
+    for (j = 0; j < 128; j++){
+        if (j < 64)
+            accum_left += line_data[j];
+        else
+            accum_right += line_data[j];
     }
 
-    avg = (double)accum / 64.0;
-    return avg;
+    for (j = 0; j < 128; j++){
+        if (j < 64)
+            avg_line_data[j] = accum_left/80;
+        else
+            avg_line_data[j] = accum_right/80;
+    }
+}
+
+int determine_direction(uint16_t* avg_line_data){
+    int retVal = 0;
+    retVal = (avg_line_data[0] > avg_line_data[64]) ? 1 : 0;
+    return retVal;
 }
 
 
 int main(void){
+    int direction = 0;
+    int j = 0;
 
     /* Initializations */
     DisableInterrupts();
@@ -99,11 +112,12 @@ int main(void){
     
     /* Test OLED Display*/
     #ifdef TEST_OLED
-        OLED_draw_line(1, 1, "Hello World");
-        OLED_draw_line(2, 2, "How are you?");
-        OLED_draw_line(3, 3, "Goodbye");
+        OLED_draw_line(1, 1, (unsigned char *)"Hello World");   // casting strings to (unsigned char *) bc keil is stupid
+        OLED_draw_line(2, 2, (unsigned char *)"How are you?");
+        OLED_draw_line(3, 3, (unsigned char *)"Goodbye");
         OLED_write_display(OLED_TEXT_ARR);
-        msdelay(100);
+        for(j = 0; j < 1024; j++){ OLED_TEXT_ARR[j] = 0; }
+        msdelay(1000);
         OLED_display_clear();
     #endif
 
@@ -117,12 +131,21 @@ int main(void){
             #ifdef USE_OLED
                 // render camera data onto the OLED display
                 DisableInterrupts();
+                OLED_display_clear();
+                average(line, avg_line);
+                direction = determine_direction(avg_line);
+                // if (direction){
+                //     OLED_draw_line(1, 1, (unsigned char *)"right ");
+                // } else {
+                //     OLED_draw_line(1, 1, (unsigned char *)"left  ");
+                // }
+                //OLED_write_display(OLED_TEXT_ARR);
                 OLED_DisplayCameraData(line);
                 EnableInterrupts();
             #endif
 
             // TODO: Parse camera data (line)
-                
+            
 			g_sendData = FALSE;
 			LED1_Off();
 		}
