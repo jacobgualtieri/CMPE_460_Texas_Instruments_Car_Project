@@ -71,7 +71,7 @@ void SI_Handler(void){
 void ControlPin_SI_Init(){
 
 	// frequency of 133 Hz works OK, but could use more light
-	unsigned long period = CalcPeriodFromFrequency (1.0/(double)INTEGRATION_TIME); // 133Hz
+	unsigned long period = CalcPeriodFromFrequency (1.0/(double)INTEGRATION_TIME_LONGER); // 133Hz
 
 	// so try 50Hz?
 	// Go with 50Hz for now -> integration period of 20ms
