@@ -31,7 +31,6 @@ BOOLEAN g_sendData;
 
 /**
  * @brief simple delay function
- * 
  */
 void myDelay(void){
 	volatile int j;
@@ -40,7 +39,6 @@ void myDelay(void){
 
 /**
  * @brief msdelay function from Lab 5
- *
  */
 void msdelay(int delay){
     int i,j;
@@ -50,7 +48,6 @@ void msdelay(int delay){
 
 /**
  * @brief camera initialization function
- * 
  */
 void INIT_Camera(void){
 	g_sendData = FALSE;
@@ -59,7 +56,15 @@ void INIT_Camera(void){
 	ADC0_InitSWTriggerCh6();
 }
 
-void average(uint16_t* line_data, uint16_t* avg_line_data){
+/**
+ * @brief splits the camera data in half and calculates the average of each half
+ * 
+ * @param line_data the camera data
+ * @param avg_line_data the averaged halves of camera data
+ * avg_line_data is a 128 point array so it can be easily rendered on the OLED screen
+ * Loop unrolling may be helpful if we ever need this to run faster
+ */
+void split_average(uint16_t* line_data, uint16_t* avg_line_data){
     int j = 0;
     unsigned long accum_left = 0;
     unsigned long accum_right = 0;
@@ -73,12 +78,21 @@ void average(uint16_t* line_data, uint16_t* avg_line_data){
 
     for (j = 0; j < 128; j++){
         if (j < 64)
-            avg_line_data[j] = accum_left/80;
+            avg_line_data[j] = accum_left/64;
         else
-            avg_line_data[j] = accum_right/80;
+            avg_line_data[j] = accum_right/64;
     }
 }
 
+
+/**
+ * @brief determines which half of the camera data has a greater average
+ * 
+ * @param avg_line_data the averaged halves of camera data
+ * @return int
+ * If retVal = 1, then the left side has a higher average
+ * else, retVal = 0
+ */
 int determine_direction(uint16_t* avg_line_data){
     int retVal = 0;
     retVal = (avg_line_data[0] > avg_line_data[64]) ? 1 : 0;
@@ -99,7 +113,7 @@ int main(void){
 	    OLED_display_clear();
 	    OLED_display_on();
     #else
-        #ifdef TEST_OLED
+        #ifdef TEST_OLED            // Cascaded ifdef to avoid initializing OLED screen twice
             OLED_Init();
             OLED_display_on();
             OLED_display_clear();
@@ -116,8 +130,8 @@ int main(void){
         OLED_draw_line(2, 2, (unsigned char *)"How are you?");
         OLED_draw_line(3, 3, (unsigned char *)"Goodbye");
         OLED_write_display(OLED_TEXT_ARR);
-        for(j = 0; j < 1024; j++){ OLED_TEXT_ARR[j] = 0; }
         msdelay(1000);
+        for(j = 0; j < 1024; j++){ OLED_TEXT_ARR[j] = 0; }
         OLED_display_clear();
     #endif
 
@@ -128,23 +142,23 @@ int main(void){
         if (g_sendData == TRUE){
 			LED1_On();
 
+            // TODO: Parse camera data (line)
+            split_average(line, avg_line);
+            direction = determine_direction(avg_line);
+
+            // render camera data onto the OLED display
             #ifdef USE_OLED
-                // render camera data onto the OLED display
                 DisableInterrupts();
                 OLED_display_clear();
-                average(line, avg_line);
-                direction = determine_direction(avg_line);
+                OLED_DisplayCameraData(avg_line);
                 // if (direction){
                 //     OLED_draw_line(1, 1, (unsigned char *)"right ");
                 // } else {
                 //     OLED_draw_line(1, 1, (unsigned char *)"left  ");
                 // }
-                //OLED_write_display(OLED_TEXT_ARR);
-                OLED_DisplayCameraData(line);
+                // OLED_write_display(OLED_TEXT_ARR);
                 EnableInterrupts();
             #endif
-
-            // TODO: Parse camera data (line)
             
 			g_sendData = FALSE;
 			LED1_Off();
