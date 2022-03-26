@@ -135,7 +135,7 @@ void initDriving(void){
     TIMER_A0_PWM_Init(period, 0, 4);	// M2B -> P2.7
 }
 
-void adjustDriving(double servo_position){
+void adjustDriving(double servo_position, BOOLEAN running){
     // TODO: the driving logic will also be very static
     double duty_cycle = 10.0;   //  start out testing very slow
     double half_turn = 0.025;
@@ -145,48 +145,52 @@ void adjustDriving(double servo_position){
     double right_limit = CENTER_POSITION + .0025;
     double left_limit = CENTER_POSITION - .0025;
 
-    if ((servo_position <= right_limit) || (servo_position <= left_limit)){
-        //  motor 1 left => P2.4 & P2.5
-        TIMER_A0_PWM_DutyCycle(duty_cycle/100, 1);  //  motor 1 left
+    if(running){
+        if ((servo_position <= right_limit) || (servo_position <= left_limit)){
+            //  motor 1 left => P2.4 & P2.5
+            TIMER_A0_PWM_DutyCycle(duty_cycle/100, 1);  //  motor 1 left
 
-        //  motor 2 right => P2.6 & P2.7
-        TIMER_A0_PWM_DutyCycle(duty_cycle/100, 3);  //  motor 2 right
+            //  motor 2 right => P2.6 & P2.7
+            TIMER_A0_PWM_DutyCycle(duty_cycle/100, 3);  //  motor 2 right
+        }
+            // if servo position is left (less than center)
+            // trying to turn left, slow down left wheel
+        else if (servo_position < CENTER_POSITION){
+            // Set speed of right wheel
+            TIMER_A0_PWM_DutyCycle(duty_cycle/100, 3);  //  motor 2 right
+
+            // if steering is more than half the distance between center and left
+            // cut speed of left by duty_cycle/4
+            if (servo_position < CENTER_POSITION - half_turn){
+                TIMER_A0_PWM_DutyCycle((duty_cycle/4)/100, 1);  //  motor 1 left
+            }
+
+                // else cut speed of left by duty_cycle/2
+            else{
+                TIMER_A0_PWM_DutyCycle((duty_cycle/2)/100, 1);  //  motor 1 left
+            }
+        }
+
+            // if servo position is right (more than center)
+            // trying to turn right, slow down right wheel
+        else if (servo_position > CENTER_POSITION){
+            // Set speed of left wheel
+            TIMER_A0_PWM_DutyCycle(duty_cycle/100, 1);  //  motor 1 left
+
+            // if steering is more than half the distance between center and right
+            // cut speed of right by duty_cycle/4
+            if (servo_position > CENTER_POSITION + half_turn){
+                TIMER_A0_PWM_DutyCycle((duty_cycle/4)/100, 3);  //  motor 2 right
+            }
+
+                // else cut speed of right by duty_cycle/2
+            else{
+                TIMER_A0_PWM_DutyCycle((duty_cycle/2)/100, 3);  //  motor 2 right
+            }
+        }
     }
-    // if servo position is left (less than center)
-    // trying to turn left, slow down left wheel
-    else if (servo_position < CENTER_POSITION){
-        // Set speed of right wheel
-        TIMER_A0_PWM_DutyCycle(duty_cycle/100, 3);  //  motor 2 right
 
-        // if steering is more than half the distance between center and left
-        // cut speed of left by duty_cycle/4
-        if (servo_position < CENTER_POSITION - half_turn){
-            TIMER_A0_PWM_DutyCycle((duty_cycle/4)/100, 1);  //  motor 1 left
-        }
 
-        // else cut speed of left by duty_cycle/2
-        else{
-            TIMER_A0_PWM_DutyCycle((duty_cycle/2)/100, 1);  //  motor 1 left
-        }
-    }
-
-    // if servo position is right (more than center)
-    // trying to turn right, slow down right wheel
-    else if (servo_position > CENTER_POSITION){
-        // Set speed of left wheel
-        TIMER_A0_PWM_DutyCycle(duty_cycle/100, 1);  //  motor 1 left
-
-        // if steering is more than half the distance between center and right
-        // cut speed of right by duty_cycle/4
-        if (servo_position > CENTER_POSITION + half_turn){
-            TIMER_A0_PWM_DutyCycle((duty_cycle/4)/100, 3);  //  motor 2 right
-        }
-
-        // else cut speed of right by duty_cycle/2
-        else{
-            TIMER_A0_PWM_DutyCycle((duty_cycle/2)/100, 3);  //  motor 2 right
-        }
-    }
 }
 
 /**
@@ -220,6 +224,7 @@ void init(void){
 int main(void){
     int direction = 0;  // 1 = high left avg (turn left) 0 = high right avg (turn right)
     int j = 0;
+    int temp = 0;
     BOOLEAN running = FALSE;
     double servo_position = 0.075;
 
@@ -241,8 +246,8 @@ int main(void){
     EnableInterrupts();
     running = TRUE;
 
-
-    for (;;){
+    // TODO: Only run loop for a short period of time as a safety check at first
+    for (temp = 0; temp < 100; temp++){
 
         // parse camera data
         if (g_sendData == TRUE){
@@ -274,8 +279,7 @@ int main(void){
         servo_position = adjustSteering(direction, servo_position);
 
         // Set the speed the DC motors should spin
-
-
+        adjustDriving(servo_position, running);
         
 		// do a small delay
 		myDelay();
@@ -283,27 +287,26 @@ int main(void){
 
 
     // TODO: Use this formatting instead for a clear, understandable main loop
-    for(;;){
-
-        // Read the line scan camera data
-        readCameraData(line);
-
-
-        // Smooth and filter the raw data
-
-
-        // Determine the degree to turn the servo
-        direction = determine_direction(avg_line);
-
-
-        // Turn the servo motor
-        servo_position = adjustSteering(direction, servo_position);
-
-        // Set the speed the DC motors should spin
-
-
-
-
-        myDelay();
-    }
+//    for(;;){
+//
+//        // Read the line scan camera data
+//        readCameraData(line);
+//
+//
+//        // Smooth and filter the raw data
+//
+//
+//        // Determine the degree to turn the servo
+//        direction = determine_direction(avg_line);
+//
+//
+//        // Turn the servo motor
+//        servo_position = adjustSteering(direction, servo_position);
+//
+//        // Set the speed the DC motors should spin
+//        adjustDriving(servo_position, running);
+//
+//        // do a small delay
+//        myDelay();
+//    }
 }
