@@ -18,13 +18,6 @@ static uint32_t DEFAULT_PERIOD_A0[5] = {0,0,0,0,0};
 static uint32_t DEFAULT_PERIOD_A2[5] = {0,0,0,0,0};
 
 
-unsigned long CalcPeriodFromFrequency(double Hz){
-	double period = 0.0;
-	period = (double)SystemCoreClock/Hz;
-	period = period;   // we divide by 2 because we want an interrupt for both the rising edge and the falling edge
-	return (unsigned long) period;
-}
-
 //***************************PWM_Init*******************************
 // PWM output on P2.4, P2.5, P2.6, P2.7
 // Inputs:  period of P2.4...P2.7 is number of counts before output changes state

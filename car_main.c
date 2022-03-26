@@ -204,9 +204,9 @@ void adjustDriving(double servo_position, BOOLEAN running){
 }
 
 void parseCameraData(uint16_t* raw_camera_data, uint16_t* avg_line_data){
-
     if (g_sendData == TRUE){
 
+        LED1_On();
         split_average(raw_camera_data, avg_line_data);
 
         // render camera data onto the OLED display
@@ -222,6 +222,9 @@ void parseCameraData(uint16_t* raw_camera_data, uint16_t* avg_line_data){
             // OLED_write_display(OLED_TEXT_ARR);
             EnableInterrupts();
         #endif
+
+        LED1_Off();
+        g_sendData = FALSE;
     }
 }
 
