@@ -189,8 +189,12 @@ void adjustDriving(double servo_position, BOOLEAN running){
             }
         }
     }
+    else{
+        // set all motors to zero (stopped)
+        TIMER_A0_PWM_DutyCycle(0.0, 1);  //  motor 1 left
 
-
+        TIMER_A0_PWM_DutyCycle(0.0, 3);  //  motor 2 right
+    }
 }
 
 /**
