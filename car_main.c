@@ -18,6 +18,7 @@
 #include "ADC14.h"
 #include "ControlPins.h"
 #include "Camera.h"
+#include "TimerA.h"
 
 #define USE_OLED
 #define TEST_OLED
@@ -46,6 +47,57 @@ void msdelay(int delay){
     for(i=0;i<delay;i++)
         for(j=0;j<16000;j++);
 }
+
+
+double adjustSteering(int degree, double servo_position){
+    // TODO: For now, we are changing the steering angle at a constant rate
+    double constant_rate = 0.005;
+
+    // TODO: Double check that the left is the right left, I can't remember which is which
+    // left, center, right => .05, .075, .1 => 1ms, 1.5ms, 2ms
+    double right_position = .1;
+    double left_position = .05;
+    double center_position = .075;
+
+    /** Need to add logic that follows some sort of dampening scheme to get to the center of the track
+     * as fast as possible without turning too far
+     *
+     * also if calculated degree is withing a given tolerance, it should keep going straight
+     * until it falls out of the tolerance and then it will correct the steering. This should prevent
+     * the car from constantly turning
+     */
+
+
+
+    // 0 = high right avg (turn more right)
+    if (degree == 0){
+        if(servo_position < center_position){ servo_position = center_position; }
+        else{
+            servo_position = servo_position + constant_rate;
+        }
+
+        if ( servo_position > right_position){ servo_position = right_position; }
+    }
+
+    // 1 = high left avg (turn more left)
+    else if (degree == 1){
+        if(servo_position > center_position){ servo_position = center_position; }
+        else{
+            servo_position = servo_position - constant_rate;
+        }
+
+        if ( servo_position > left_position){ servo_position = left_position; }
+    }
+    TIMER_A2_PWM_DutyCycle(servo_position, 1);
+    return servo_position;
+}
+
+void initSteering(void){
+    // Setup steering to be centered
+    // PWM -> f = 1kHz, T = 20ms, center = 1.5ms
+    TIMER_A2_PWM_Init(CalcPeriodFromFrequency(1000.0), 0.075, 1);
+}
+
 /**
  * @brief initializes LED1, LED2, UART, and OLED
  */
@@ -56,6 +108,7 @@ void init(void){
     uart0_init();
     uart2_init();
     INIT_Camera();
+    initSteering();
 
     #ifdef USE_OLED
         OLED_Init();
@@ -64,17 +117,19 @@ void init(void){
         OLED_display_on();
     #else
         #ifdef TEST_OLED            // Cascaded ifdef to avoid initializing OLED screen twice
-                OLED_Init();
-                OLED_display_on();
-                OLED_display_clear();
-                OLED_display_on();
-            #endif
+                    OLED_Init();
+                    OLED_display_on();
+                    OLED_display_clear();
+                    OLED_display_on();
+                #endif
     #endif
 }
 
 int main(void){
-    int direction = 0;  //  degree that the wheels should turn
+    int direction = 0;  // 1 = high left avg (turn left) 0 = high right avg (turn right)
     int j = 0;
+    BOOLEAN running = FALSE;
+    double servo_position = 0.075;
 
     /* Initializations */
     init();
@@ -92,6 +147,7 @@ int main(void){
 
     /* Begin Infinite Loop */
     EnableInterrupts();
+    running = TRUE;
 
     for (;;){
 
@@ -122,7 +178,7 @@ int main(void){
 		}
 
         // Turn the servo motor
-
+        servo_position = adjustSteering(direction, servo_position);
 
         // Set the speed the DC motors should spin
 
