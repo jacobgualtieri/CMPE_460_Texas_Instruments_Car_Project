@@ -27,6 +27,12 @@
 #define RIGHT_POSITION .1
 #define CENTER_POSITION .075
 
+#define HALF_DUTY_CYCLE(dc) ((dc)/200.0)
+#define QUARTER_DUTY_CYCLE(dc) ((dc)/400.0)
+
+#define LEFT_MOTOR 1
+#define RIGHT_MOTOR 3
+
 // line stores the current array of camera data
 extern unsigned char OLED_clr_data[1024];
 extern unsigned char OLED_TEXT_ARR[1024];
@@ -52,6 +58,12 @@ void msdelay(int delay){
         for(j=0;j<16000;j++);
 }
 
+
+void initSteering(void){
+    // Setup steering to be centered
+    // PWM -> f = 1kHz, T = 20ms, center = 1.5ms
+    TIMER_A2_PWM_Init(CalcPeriodFromFrequency(1000.0), 0.075, 1);
+}
 
 double adjustSteering(int degree, double servo_position){
     // TODO: For now, we are changing the steering angle at a constant rate
@@ -92,12 +104,6 @@ double adjustSteering(int degree, double servo_position){
     return servo_position;
 }
 
-void initSteering(void){
-    // Setup steering to be centered
-    // PWM -> f = 1kHz, T = 20ms, center = 1.5ms
-    TIMER_A2_PWM_Init(CalcPeriodFromFrequency(1000.0), 0.075, 1);
-}
-
 void initDriving(void){
     uint16_t period;
     double freq = 10000.0;  //  Frequency = 10 kHz
@@ -129,10 +135,10 @@ void initDriving(void){
      */
 
     period = (uint16_t) CalcPeriodFromFrequency(freq);
-    TIMER_A0_PWM_Init(period, 0, 1);	// M1A -> P2.4
-    TIMER_A0_PWM_Init(period, 0, 2);	// M1B -> P2.5
-    TIMER_A0_PWM_Init(period, 0, 3);	// M2A -> P2.6
-    TIMER_A0_PWM_Init(period, 0, 4);	// M2B -> P2.7
+    TIMER_A0_PWM_Init(period, 0.0, 1);	// M1A -> P2.4
+    TIMER_A0_PWM_Init(period, 0.0, 2);	// M1B -> P2.5
+    TIMER_A0_PWM_Init(period, 0.0, 3);	// M2A -> P2.6
+    TIMER_A0_PWM_Init(period, 0.0, 4);	// M2B -> P2.7
 }
 
 void adjustDriving(double servo_position, BOOLEAN running){
@@ -148,26 +154,26 @@ void adjustDriving(double servo_position, BOOLEAN running){
     if(running){
         if ((servo_position <= right_limit) || (servo_position <= left_limit)){
             //  motor 1 left => P2.4 & P2.5
-            TIMER_A0_PWM_DutyCycle(duty_cycle/100, 1);  //  motor 1 left
+            TIMER_A0_PWM_DutyCycle(duty_cycle/100.0, LEFT_MOTOR);  //  motor 1 left
 
             //  motor 2 right => P2.6 & P2.7
-            TIMER_A0_PWM_DutyCycle(duty_cycle/100, 3);  //  motor 2 right
+            TIMER_A0_PWM_DutyCycle(duty_cycle/100.0, RIGHT_MOTOR);  //  motor 2 right
         }
             // if servo position is left (less than center)
             // trying to turn left, slow down left wheel
         else if (servo_position < CENTER_POSITION){
             // Set speed of right wheel
-            TIMER_A0_PWM_DutyCycle(duty_cycle/100, 3);  //  motor 2 right
+            TIMER_A0_PWM_DutyCycle(duty_cycle/100.0, RIGHT_MOTOR);  //  motor 2 right
 
             // if steering is more than half the distance between center and left
             // cut speed of left by duty_cycle/4
             if (servo_position < CENTER_POSITION - half_turn){
-                TIMER_A0_PWM_DutyCycle((duty_cycle/4)/100, 1);  //  motor 1 left
+                TIMER_A0_PWM_DutyCycle(QUARTER_DUTY_CYCLE(duty_cycle), LEFT_MOTOR);  //  motor 1 left
             }
 
                 // else cut speed of left by duty_cycle/2
             else{
-                TIMER_A0_PWM_DutyCycle((duty_cycle/2)/100, 1);  //  motor 1 left
+                TIMER_A0_PWM_DutyCycle(HALF_DUTY_CYCLE(duty_cycle), LEFT_MOTOR);  //  motor 1 left
             }
         }
 
@@ -175,17 +181,17 @@ void adjustDriving(double servo_position, BOOLEAN running){
             // trying to turn right, slow down right wheel
         else if (servo_position > CENTER_POSITION){
             // Set speed of left wheel
-            TIMER_A0_PWM_DutyCycle(duty_cycle/100, 1);  //  motor 1 left
+            TIMER_A0_PWM_DutyCycle(duty_cycle/100.0, 1);  //  motor 1 left
 
             // if steering is more than half the distance between center and right
             // cut speed of right by duty_cycle/4
             if (servo_position > CENTER_POSITION + half_turn){
-                TIMER_A0_PWM_DutyCycle((duty_cycle/4)/100, 3);  //  motor 2 right
+                TIMER_A0_PWM_DutyCycle(QUARTER_DUTY_CYCLE(duty_cycle), RIGHT_MOTOR);  //  motor 2 right
             }
 
                 // else cut speed of right by duty_cycle/2
             else{
-                TIMER_A0_PWM_DutyCycle((duty_cycle/2)/100, 3);  //  motor 2 right
+                TIMER_A0_PWM_DutyCycle(HALF_DUTY_CYCLE(duty_cycle), RIGHT_MOTOR);  //  motor 2 right
             }
         }
     }
@@ -194,6 +200,28 @@ void adjustDriving(double servo_position, BOOLEAN running){
         TIMER_A0_PWM_DutyCycle(0.0, 1);  //  motor 1 left
 
         TIMER_A0_PWM_DutyCycle(0.0, 3);  //  motor 2 right
+    }
+}
+
+void parseCameraData(uint16_t* raw_camera_data, uint16_t* avg_line_data){
+
+    if (g_sendData == TRUE){
+
+        split_average(raw_camera_data, avg_line_data);
+
+        // render camera data onto the OLED display
+        #ifdef USE_OLED
+            DisableInterrupts();
+            OLED_display_clear();
+            OLED_DisplayCameraData(avg_line_data);
+            // if (direction){
+            //     OLED_draw_line(1, 1, (unsigned char *)"right ");
+            // } else {
+            //     OLED_draw_line(1, 1, (unsigned char *)"left  ");
+            // }
+            // OLED_write_display(OLED_TEXT_ARR);
+            EnableInterrupts();
+        #endif
     }
 }
 
@@ -217,13 +245,15 @@ void init(void){
         OLED_display_on();
     #else
         #ifdef TEST_OLED            // Cascaded ifdef to avoid initializing OLED screen twice
-                    OLED_Init();
-                    OLED_display_on();
-                    OLED_display_clear();
-                    OLED_display_on();
-                #endif
+            OLED_Init();
+            OLED_display_on();
+            OLED_display_clear();
+            OLED_display_on();
+        #endif
     #endif
 }
+
+
 
 int main(void){
     int direction = 0;  // 1 = high left avg (turn left) 0 = high right avg (turn right)
@@ -253,31 +283,8 @@ int main(void){
     // TODO: Only run loop for a short period of time as a safety check at first
     for (temp = 0; temp < 100; temp++){
 
-        // parse camera data
-        if (g_sendData == TRUE){
-			LED1_On();
-
-            // TODO: Parse camera data (line)
-            split_average(line, avg_line);
-            direction = determine_direction(avg_line);
-
-            // render camera data onto the OLED display
-            #ifdef USE_OLED
-                DisableInterrupts();
-                OLED_display_clear();
-                OLED_DisplayCameraData(avg_line);
-                // if (direction){
-                //     OLED_draw_line(1, 1, (unsigned char *)"right ");
-                // } else {
-                //     OLED_draw_line(1, 1, (unsigned char *)"left  ");
-                // }
-                // OLED_write_display(OLED_TEXT_ARR);
-                EnableInterrupts();
-            #endif
-            
-			g_sendData = FALSE;
-			LED1_Off();
-		}
+        parseCameraData(line, avg_line);
+        direction = determine_direction(avg_line);
 
         // Turn the servo motor
         servo_position = adjustSteering(direction, servo_position);

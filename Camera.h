@@ -1,6 +1,8 @@
-#ifndef _CAMERA_
-#define _CAMERA_
-#include "Camera.h"
+#include <stdint.h>
+
+#ifndef _CAMERA_H_
+#define _CAMERA_H_
+#endif
 
 void INIT_Camera(void);
 void readCameraData(uint16_t* raw_camera_data);

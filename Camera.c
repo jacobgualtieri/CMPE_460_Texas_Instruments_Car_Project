@@ -7,7 +7,7 @@
 #include "uart.h"
 #include "Camera.h"
 
-BOOLEAN g_sendData;
+extern BOOLEAN g_sendData;
 
 /**
  * @brief camera initialization function
