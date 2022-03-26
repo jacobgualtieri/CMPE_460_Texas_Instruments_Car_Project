@@ -17,6 +17,7 @@
 #include "CortexM.h"
 #include "ADC14.h"
 #include "ControlPins.h"
+#include "Camera.h"
 
 #define USE_OLED
 #define TEST_OLED
@@ -45,84 +46,38 @@ void msdelay(int delay){
     for(i=0;i<delay;i++)
         for(j=0;j<16000;j++);
 }
-
 /**
- * @brief camera initialization function
+ * @brief initializes LED1, LED2, UART, and OLED
  */
-void INIT_Camera(void){
-	g_sendData = FALSE;
-	ControlPin_SI_Init();
-	ControlPin_CLK_Init();
-	ADC0_InitSWTriggerCh6();
-}
-
-/**
- * @brief splits the camera data in half and calculates the average of each half
- * 
- * @param line_data the camera data
- * @param avg_line_data the averaged halves of camera data
- * avg_line_data is a 128 point array so it can be easily rendered on the OLED screen
- * Loop unrolling may be helpful if we ever need this to run faster
- */
-void split_average(uint16_t* line_data, uint16_t* avg_line_data){
-    int j = 0;
-    unsigned long accum_left = 0;
-    unsigned long accum_right = 0;
-
-    for (j = 0; j < 128; j++){
-        if (j < 64)
-            accum_left += line_data[j];
-        else
-            accum_right += line_data[j];
-    }
-
-    for (j = 0; j < 128; j++){
-        if (j < 64)
-            avg_line_data[j] = accum_left/64;
-        else
-            avg_line_data[j] = accum_right/64;
-    }
-}
-
-
-/**
- * @brief determines which half of the camera data has a greater average
- * 
- * @param avg_line_data the averaged halves of camera data
- * @return int
- * If retVal = 1, then the left side has a higher average
- * else, retVal = 0
- */
-int determine_direction(uint16_t* avg_line_data){
-    int retVal = 0;
-    retVal = (avg_line_data[0] > avg_line_data[64]) ? 1 : 0;
-    return retVal;
-}
-
-
-int main(void){
-    int direction = 0;
-    int j = 0;
-
-    /* Initializations */
+void init(void){
     DisableInterrupts();
+    LED1_Init();
+    LED2_Init();
+    uart0_init();
+    uart2_init();
+    INIT_Camera();
 
     #ifdef USE_OLED
         OLED_Init();
-	    OLED_display_on();
-	    OLED_display_clear();
-	    OLED_display_on();
+        OLED_display_on();
+        OLED_display_clear();
+        OLED_display_on();
     #else
         #ifdef TEST_OLED            // Cascaded ifdef to avoid initializing OLED screen twice
-            OLED_Init();
-            OLED_display_on();
-            OLED_display_clear();
-            OLED_display_on();
-        #endif
+                OLED_Init();
+                OLED_display_on();
+                OLED_display_clear();
+                OLED_display_on();
+            #endif
     #endif
-    LED1_Init();
-    LED2_Init();
-    INIT_Camera();
+}
+
+int main(void){
+    int direction = 0;  //  degree that the wheels should turn
+    int j = 0;
+
+    /* Initializations */
+    init();
     
     /* Test OLED Display*/
     #ifdef TEST_OLED
@@ -139,6 +94,8 @@ int main(void){
     EnableInterrupts();
 
     for (;;){
+
+        // parse camera data
         if (g_sendData == TRUE){
 			LED1_On();
 
@@ -163,8 +120,41 @@ int main(void){
 			g_sendData = FALSE;
 			LED1_Off();
 		}
+
+        // Turn the servo motor
+
+
+        // Set the speed the DC motors should spin
+
+
         
 		// do a small delay
 		myDelay();
+    }
+
+
+    // TODO: Use this formatting instead for a clear, understandable main loop
+    for(;;){
+
+        // Read the line scan camera data
+        readCameraData(line);
+
+
+        // Smooth and filter the raw data
+
+
+        // Determine the degree to turn the servo
+        direction = determine_direction(avg_line);
+
+
+        // Turn the servo motor
+
+
+        // Set the speed the DC motors should spin
+
+
+
+
+        myDelay();
     }
 }
