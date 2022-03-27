@@ -91,7 +91,7 @@ void slope_finder(uint16_t* line_data, line_stats_t* stat_collection){
 /**
  * @brief Calculates the 5-point moving average of the camera line data
  * and determines the maximum value detected by the camera
- * 
+ *
  * @param line_data raw camera data
  * @param smoothed_line smoothed camera data after averaging
  * @param stat_collection contains values and indexes of the max and min
@@ -167,9 +167,9 @@ void split_average(uint16_t* line_data, uint16_t* avg_line_data){
 int determine_direction(uint16_t* avg_line_data){
     int retVal;
     int margin = 2000;
-    
+
     uint16_t left_amt, right_amt;
-    
+
     left_amt = avg_line_data[0];    // left average
     right_amt = avg_line_data[64];  // right average
 
