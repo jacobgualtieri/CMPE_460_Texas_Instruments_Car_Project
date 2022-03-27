@@ -87,10 +87,10 @@ double adjustSteering(int degree, double servo_position){
 
     if (degree == 1){   //  turn right
         if (difference > threshold){
-            servo_position = big_left;
+            servo_position = big_right;
         }
         else{
-            servo_position = small_left;
+            servo_position = small_right;
         }
 
     }
