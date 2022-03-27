@@ -22,8 +22,8 @@
 #include "TimerA.h"
 
 #define USE_OLED
+#define USE_UART
 //#define TEST_OLED
-uint16_t max;
 
 #define LEFT_POSITION .05
 #define RIGHT_POSITION .1
@@ -193,11 +193,10 @@ void parseCameraData(uint16_t* raw_camera_data, uint16_t* avg_line_data){
                 max = max;
             }
         }
-        
-        if (max < 4096){
+if (max < 4096){
             running = FALSE;
         }
-        
+
         LED1_Off();
         g_sendData = FALSE;
     }
