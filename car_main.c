@@ -43,8 +43,9 @@
 extern unsigned char OLED_clr_data[1024];
 extern unsigned char OLED_TEXT_ARR[1024];
 extern unsigned char OLED_GRAPH_ARR[1024];
-uint16_t line[128];
-uint16_t avg_line[128];
+uint16_t line[128];             // raw
+uint16_t smoothed_line[128];    // 5-point average of raw data
+uint16_t steering_array[128];         
 BOOLEAN g_sendData;
 BOOLEAN running = TRUE;
 
@@ -234,25 +235,26 @@ void adjustDriving(double servo_position){
     // }
 }
 
-int parseCameraData(uint16_t* raw_camera_data, uint16_t* avg_line_data){
+int parseCameraData(uint16_t* raw_camera_data, uint16_t* smoothed_line, uint16_t* avg_line_data){
     int max;
     int j = 0;
     if (g_sendData == TRUE){
 
         LED1_On();
-        split_average(raw_camera_data, avg_line_data);
+        MovingAverage(raw_camera_data, smoothed_line);
+        split_average(smoothed_line, avg_line_data);
 
         // render camera data onto the OLED display
         #ifdef USE_OLED
             DisableInterrupts();
             OLED_display_clear();
-            OLED_DisplayCameraData(raw_camera_data);
+            OLED_DisplayCameraData(smoothed_line);
             EnableInterrupts();
         #endif
         
         for(j = 0; j < 128; j++){
-            if (max < line[j]){
-                max = line[j];
+            if (max < smoothed_line[j]){
+                max = smoothed_line[j];
             } else {
                 max = max;
             }
@@ -328,8 +330,8 @@ int main(void){
     // TODO: Only run loop for a short period of time as a safety check at first
     for(;;){
 
-        camera_line_max = parseCameraData(line, avg_line);
-        direction = determine_direction(avg_line);
+        camera_line_max = parseCameraData(line, smoothed_line, steering_array);
+        direction = determine_direction(steering_array);
 
         // Turn the servo motor
         servo_position = adjustSteering(direction, servo_position);
