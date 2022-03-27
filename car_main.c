@@ -74,39 +74,35 @@ void initSteering(void){
 }
 
 double adjustSteering(int degree, double servo_position){
-    // TODO: For now, we are changing the steering angle at a constant rate
-    double constant_rate = 0.005;
+    double big_right = .09;
+    double small_right = .085;
+    double big_left = .06;
+    double small_left = .065;
+    uint16_t left_amt, right_amt;
 
-    // TODO: Double check that the left is the right left, I can't remember which is which
-    // left, center, right => .05, .075, .1 => 1ms, 1.5ms, 2ms
+    left_amt = steering_array[0];
+    right_amt = steering_array[64];
+    uint16_t difference = abs(right_amt - left_amt);
+    uint16_t threshold = 1000;
 
-
-    /** Need to add logic that follows some sort of dampening scheme to get to the center of the track
-     * as fast as possible without turning too far
-     *
-     * also if calculated degree is withing a given tolerance, it should keep going straight
-     * until it falls out of the tolerance and then it will correct the steering. This should prevent
-     * the car from constantly turning
-     */
-
-    // 0 = high right avg (turn more right)
-    if (degree == 1){
-        if(servo_position < CENTER_POSITION){ servo_position = CENTER_POSITION; }
+    if (degree == 1){   //  turn right
+        if (difference > threshold){
+            servo_position = big_left;
+        }
         else{
-            servo_position = servo_position + constant_rate;
-            if ( servo_position > RIGHT_POSITION){ servo_position = RIGHT_POSITION; }
+            servo_position = small_left;
         }
 
     }
 
-    // 1 = high left avg (turn more left)
-    else if (degree == -1){
-        if(servo_position > CENTER_POSITION){ servo_position = CENTER_POSITION; }
-        else{
-            servo_position = servo_position - constant_rate;
-            if ( servo_position < LEFT_POSITION){ servo_position = LEFT_POSITION; }
-        }
 
+    else if (degree == -1){ //  turn left
+        if (difference > threshold){
+            servo_position = big_left;
+        }
+        else{
+            servo_position = small_left;
+        }
     }
 
     else {
