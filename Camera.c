@@ -42,6 +42,22 @@ void readCameraData(uint16_t* raw_camera_data){
     }
 }
 
+void MovingAverage(uint16_t* line_data, uint16_t* smoothed_line){
+    int i;
+    uint16_t five_p_avg;
+
+    smoothed_line[0] = line_data[0];
+    smoothed_line[1] = line_data[1];
+
+    for(i = 2; i < 126; i++){
+        five_p_avg = line_data[i+2]/5 + line_data[i+1]/5 + line_data[i]/5 + line_data[i-1]/5 + line_data[i-2]/5;
+        smoothed_line[i] = five_p_avg;
+    }
+
+    smoothed_line[126] = line_data[126];
+    smoothed_line[127] = line_data[127];
+}
+
 /**
  * @brief splits the camera data in half and calculates the average of each half
  *
@@ -84,11 +100,16 @@ void split_average(uint16_t* line_data, uint16_t* avg_line_data){
 int determine_direction(uint16_t* avg_line_data){
     int retVal = 0;
     int margin = 1000;
+    
+    uint16_t left_amt, right_amt;
+    
+    left_amt = avg_line_data[0];
+    right_amt = avg_line_data[64];
 
-    if (avg_line_data[0] > (avg_line_data[64] + 1000)){         // turn left
+    if (left_amt > (right_amt + margin)){         // turn left
         retVal = 1;
     }
-    else if ((avg_line_data[0] + margin) < avg_line_data[64]){  // turn right
+    else if ((left_amt + margin) < right_amt){  // turn right
         retVal = -1;
     }
     else {          // go straight
