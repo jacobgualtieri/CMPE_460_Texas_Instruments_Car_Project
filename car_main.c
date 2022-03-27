@@ -27,6 +27,7 @@
 #define LEFT_POSITION .05
 #define RIGHT_POSITION .1
 #define CENTER_POSITION .075
+#define SPEED 20.0  //  start out testing very slow
 
 #define HALF_DUTY_CYCLE(dc) ((dc)/200.0)
 #define QUARTER_DUTY_CYCLE(dc) ((dc)/400.0)
@@ -152,20 +153,31 @@ void initDriving(void){
     TIMER_A0_PWM_Init(period, 0.0, 4);	// M2B -> P2.7
 }
 
-void adjustDriving(double servo_position, BOOLEAN running){
-    // TODO: the driving logic will also be very static
-    double duty_cycle = 20.0;   //  start out testing very slow
-    double half_turn = 0.025;
-
+void adjustDriving(double servo_position){
 
     // if servo position is within .05 of center, keep driving at same speed
     double right_limit = CENTER_POSITION + .0025;
     double left_limit = CENTER_POSITION - .0025;
 
     if (running){
-        TIMER_A0_PWM_DutyCycle(duty_cycle/100.0, LEFT_MOTOR);
-        TIMER_A0_PWM_DutyCycle(duty_cycle/100.0, RIGHT_MOTOR);
-    } else {
+
+        if (servo_position < CENTER_POSITION){
+            TIMER_A0_PWM_DutyCycle(((3*SPEED)/4)/100.0, LEFT_MOTOR);
+            TIMER_A0_PWM_DutyCycle(SPEED/100.0, RIGHT_MOTOR);
+
+        }
+        else if ( servo_position > CENTER_POSITION ) {
+            TIMER_A0_PWM_DutyCycle(SPEED/100.0, LEFT_MOTOR);
+            TIMER_A0_PWM_DutyCycle(((3*SPEED)/4)/100.0, RIGHT_MOTOR);
+
+        }
+        else{
+            TIMER_A0_PWM_DutyCycle(SPEED/100.0, LEFT_MOTOR);
+            TIMER_A0_PWM_DutyCycle(SPEED/100.0, RIGHT_MOTOR);
+        }
+
+    }
+    else {
         TIMER_A0_PWM_DutyCycle(0.0, LEFT_MOTOR);
         TIMER_A0_PWM_DutyCycle(0.0, RIGHT_MOTOR);
     }
@@ -331,7 +343,7 @@ int main(void){
         #endif
         
         // Set the speed the DC motors should spin
-        adjustDriving(servo_position, running);
+        adjustDriving(servo_position);
 
         if ((10 < camera_line_max) && (camera_line_max < 6500)){
             running = FALSE;
