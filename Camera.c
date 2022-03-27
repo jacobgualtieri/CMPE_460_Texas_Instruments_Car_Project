@@ -80,7 +80,8 @@ void split_average(uint16_t* line_data, uint16_t* avg_line_data){
  * If retVal = 1, turn to the right
  */
 int determine_direction(uint16_t* avg_line_data){
-    int degree = 0;
+    // TODO: Need to figure out how to convert the average into a degree from -90 to +90
+    int degree;
     int margin = 1000;
 
     if (avg_line_data[0] > (avg_line_data[64] + 1000)){         // turn left
