@@ -21,7 +21,7 @@
 #include "TimerA.h"
 
 #define USE_OLED
-#define USE_UART
+//#define USE_UART
 //#define TEST_OLED
 
 #define LEFT_POSITION .05
@@ -73,7 +73,7 @@ void initSteering(void){
 
 double adjustSteering(int degree, double servo_position){
     // TODO: For now, we are changing the steering angle at a constant rate
-    double constant_rate = 0.008;
+    double constant_rate = 0.005;
 
     // TODO: Double check that the left is the right left, I can't remember which is which
     // left, center, right => .05, .075, .1 => 1ms, 1.5ms, 2ms
@@ -259,13 +259,13 @@ int parseCameraData(uint16_t* raw_camera_data, uint16_t* avg_line_data){
 void init(void){
     DisableInterrupts();
     LED1_Init();
-    //LED2_Init();
+    LED2_Init();
     INIT_Camera();
     initSteering();
     initDriving();
 
     #ifdef USE_UART
-        //uart0_init();
+        uart0_init();
         uart2_init();
     #endif
     #ifdef USE_OLED
@@ -287,7 +287,6 @@ void init(void){
 
 int main(void){
     int direction = 0;  // 1 = high left avg (turn left) 0 = high right avg (turn right)
-    int j = 0;
     int camera_line_max = 0;
     double servo_position = 0.075;
 
@@ -312,6 +311,7 @@ int main(void){
     /* Begin Infinite Loop */
     EnableInterrupts();
     running = TRUE;
+    LED2_Green();
 
     // TODO: Only run loop for a short period of time as a safety check at first
     for(;;){
@@ -325,12 +325,18 @@ int main(void){
         #ifdef USE_UART
             sprintf(uart_buffer, "left: %u;    right: %u;   dir: %d;    max: %u\n\r", avg_line[0], avg_line[64], direction, camera_line_max);
             uart2_put(uart_buffer);
+            uart0_put(uart_buffer);
 //        sprintf(uart_buffer, "servo position: %g\n\r", servo_position);
 //        uart2_put(uart_buffer);
         #endif
         
         // Set the speed the DC motors should spin
         adjustDriving(servo_position, running);
+
+        if ((10 < camera_line_max) && (camera_line_max < 6500)){
+            running = FALSE;
+            LED2_Off();
+        }
 
         // Reset local variables
         camera_line_max = 0;
