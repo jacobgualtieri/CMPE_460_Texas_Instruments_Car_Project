@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <math.h>
 #include "Common.h"
 #include "oled.h"
 #include "msp.h"
@@ -27,6 +28,7 @@ uint16_t max;
 #define LEFT_POSITION .05
 #define RIGHT_POSITION .1
 #define CENTER_POSITION .075
+#define SPEED 20.0  //  start out testing very slow
 
 #define HALF_DUTY_CYCLE(dc) ((dc)/200.0)
 #define QUARTER_DUTY_CYCLE(dc) ((dc)/400.0)
@@ -71,48 +73,32 @@ void initSteering(void){
     TIMER_A2_PWM_Init(CalcPeriodFromFrequency(1000.0), 0.075, 1);
 }
 
-double adjustSteering(int degree, double servo_position){
-    // TODO: For now, we are changing the steering angle at a constant rate
-    double constant_rate = 0.008;
-
-    // TODO: Double check that the left is the right left, I can't remember which is which
+void adjustSteering(double degree){
+    double dutycycle_per_degree = (CENTER_POSITION - LEFT_POSITION)/90.0;    // duty cycle per degree
+    double duty_cycle;
     // left, center, right => .05, .075, .1 => 1ms, 1.5ms, 2ms
-
 
     /** Need to add logic that follows some sort of dampening scheme to get to the center of the track
      * as fast as possible without turning too far
-     *
-     * also if calculated degree is withing a given tolerance, it should keep going straight
-     * until it falls out of the tolerance and then it will correct the steering. This should prevent
-     * the car from constantly turning
      */
 
-    // 0 = high right avg (turn more right)
-    if (degree == 1){
-        if(servo_position < CENTER_POSITION){ servo_position = CENTER_POSITION; }
-        else{
-            servo_position = servo_position + constant_rate;
-            if ( servo_position > RIGHT_POSITION){ servo_position = RIGHT_POSITION; }
-        }
+    // A full 90-degree angle will result in either adding or subtracting .025 from CENTER_POSITION
+    // which will never reach outside the left and right bounds
 
+    if (degree > 0){    // positive degree = turn right
+        duty_cycle = CENTER_POSITION + (degree * dutycycle_per_degree); //  duty cycle will be > CENTER_POSITION
     }
 
-    // 1 = high left avg (turn more left)
-    else if (degree == -1){
-        if(servo_position > CENTER_POSITION){ servo_position = CENTER_POSITION; }
-        else{
-            servo_position = servo_position - constant_rate;
-            if ( servo_position < LEFT_POSITION){ servo_position = LEFT_POSITION; }
-        }
-
+    // redundant code, but easier to see logic for now
+    else if (degree < 0){   // negative degree = turn left
+        duty_cycle = CENTER_POSITION + (degree * dutycycle_per_degree); //  degree will be negative here
     }
 
-    else {
-        servo_position = CENTER_POSITION;
+    else {  // zero degree = go straight
+        duty_cycle = CENTER_POSITION;
     }
 
-    TIMER_A2_PWM_DutyCycle(servo_position, 1);
-    return servo_position;
+    TIMER_A2_PWM_DutyCycle(duty_cycle, 1);
 }
 
 void initDriving(void){
@@ -152,78 +138,40 @@ void initDriving(void){
     TIMER_A0_PWM_Init(period, 0.0, 4);	// M2B -> P2.7
 }
 
-void adjustDriving(double servo_position, BOOLEAN running){
-    // TODO: the driving logic will also be very static
-    double duty_cycle = 20.0;   //  start out testing very slow
-    double half_turn = 0.025;
-
-
-    // if servo position is within .05 of center, keep driving at same speed
-    double right_limit = CENTER_POSITION + .0025;
-    double left_limit = CENTER_POSITION - .0025;
-
+void adjustDriving(double degree){
     if (running){
-        TIMER_A0_PWM_DutyCycle(duty_cycle/100.0, LEFT_MOTOR);
-        TIMER_A0_PWM_DutyCycle(duty_cycle/100.0, RIGHT_MOTOR);
-    } else {
+        if (fabs(degree) < 30){ //  if degree is w/in +- 30 degrees
+            TIMER_A0_PWM_DutyCycle(SPEED/100.0, LEFT_MOTOR);
+            TIMER_A0_PWM_DutyCycle(SPEED/100.0, RIGHT_MOTOR);
+        }
+        else if (fabs(degree) < 60){    //  if degree is between +- 30 and +- 60 degrees
+            if (degree < 0){    //  turning left
+                TIMER_A0_PWM_DutyCycle(((3*SPEED)/4)/100.0, LEFT_MOTOR);
+                TIMER_A0_PWM_DutyCycle(SPEED/100.0, RIGHT_MOTOR);
+            }
+            else if (degree > 0){    //  turning right
+                TIMER_A0_PWM_DutyCycle(SPEED/100.0, LEFT_MOTOR);
+                TIMER_A0_PWM_DutyCycle(((3*SPEED)/4)/100.0, RIGHT_MOTOR);
+            }
+        }
+        else {  //  if degree is between +- 60 and +- 90 degrees
+            if (degree < 0){    //  turning left
+                TIMER_A0_PWM_DutyCycle((SPEED/2)/100.0, LEFT_MOTOR);
+                TIMER_A0_PWM_DutyCycle(SPEED/100.0, RIGHT_MOTOR);
+            }
+            else if (degree > 0){    //  turning right
+                TIMER_A0_PWM_DutyCycle(SPEED/100.0, LEFT_MOTOR);
+                TIMER_A0_PWM_DutyCycle((SPEED/2)/100.0, RIGHT_MOTOR);
+            }
+        }
+    }
+    else {
         TIMER_A0_PWM_DutyCycle(0.0, LEFT_MOTOR);
         TIMER_A0_PWM_DutyCycle(0.0, RIGHT_MOTOR);
     }
-
-    // if(running){
-    //     if ((servo_position <= right_limit) || (servo_position >= left_limit)){
-    //         //  motor 1 left => P2.4 & P2.5
-    //         TIMER_A0_PWM_DutyCycle(duty_cycle/100.0, LEFT_MOTOR);  //  motor 1 left
-
-    //         //  motor 2 right => P2.6 & P2.7
-    //         TIMER_A0_PWM_DutyCycle(duty_cycle/100.0, RIGHT_MOTOR);  //  motor 2 right
-    //     }
-    //         // if servo position is left (less than center)
-    //         // trying to turn left, slow down left wheel
-    //     else if (servo_position < CENTER_POSITION){
-    //         // Set speed of right wheel
-    //         TIMER_A0_PWM_DutyCycle(duty_cycle/100.0, RIGHT_MOTOR);  //  motor 2 right
-
-    //         // if steering is more than half the distance between center and left
-    //         // cut speed of left by duty_cycle/4
-    //         if (servo_position < CENTER_POSITION - half_turn){
-    //             TIMER_A0_PWM_DutyCycle(QUARTER_DUTY_CYCLE(duty_cycle), LEFT_MOTOR);  //  motor 1 left
-    //         }
-
-    //             // else cut speed of left by duty_cycle/2
-    //         else{
-    //             TIMER_A0_PWM_DutyCycle(HALF_DUTY_CYCLE(duty_cycle), LEFT_MOTOR);  //  motor 1 left
-    //         }
-    //     }
-
-    //         // if servo position is right (more than center)
-    //         // trying to turn right, slow down right wheel
-    //     else if (servo_position > CENTER_POSITION){
-    //         // Set speed of left wheel
-    //         TIMER_A0_PWM_DutyCycle(duty_cycle/100.0, 1);  //  motor 1 left
-
-    //         // if steering is more than half the distance between center and right
-    //         // cut speed of right by duty_cycle/4
-    //         if (servo_position > CENTER_POSITION + half_turn){
-    //             TIMER_A0_PWM_DutyCycle(QUARTER_DUTY_CYCLE(duty_cycle), RIGHT_MOTOR);  //  motor 2 right
-    //         }
-
-    //             // else cut speed of right by duty_cycle/2
-    //         else{
-    //             TIMER_A0_PWM_DutyCycle(HALF_DUTY_CYCLE(duty_cycle), RIGHT_MOTOR);  //  motor 2 right
-    //         }
-    //     }
-    // }
-    // else{
-    //     // set all motors to zero (stopped)
-    //     TIMER_A0_PWM_DutyCycle(0.0, 1);  //  motor 1 left
-
-    //     TIMER_A0_PWM_DutyCycle(0.0, 3);  //  motor 2 right
-    // }
 }
 
 void parseCameraData(uint16_t* raw_camera_data, uint16_t* avg_line_data){
-    uint64_t max;
     int j = 0;
     if (g_sendData == TRUE){
 
@@ -286,10 +234,9 @@ void init(void){
 
 
 int main(void){
-    int direction = 0;  // 1 = high left avg (turn left) 0 = high right avg (turn right)
+    int degree;  // 0 = straight, + turn right, - turn left
     int j = 0;
     int temp = 0;
-    double servo_position = 0.075;
     char uart_buffer [20];
     uint64_t camera_sum = 0;
 
@@ -316,12 +263,12 @@ int main(void){
     for(;;){
 
         parseCameraData(line, avg_line);
-        direction = determine_direction(avg_line);
+        degree = determine_direction(avg_line);
 
         // Turn the servo motor
-        servo_position = adjustSteering(direction, servo_position);
+        adjustSteering(degree);
 
-        sprintf(uart_buffer, "left: %u;    right: %u;   dir: %d;    max: %u\n\r", avg_line[0], avg_line[64], direction, max);
+        sprintf(uart_buffer, "left: %u;    right: %u;   dir: %d;    max: %u\n\r", avg_line[0], avg_line[64], degree, max);
         uart2_put(uart_buffer);
 //        sprintf(uart_buffer, "servo position: %g\n\r", servo_position);
 //        uart2_put(uart_buffer);
@@ -330,7 +277,7 @@ int main(void){
         max = 0;
         
         // Set the speed the DC motors should spin
-        adjustDriving(servo_position, running);
+        adjustDriving(degree);
         
 		// do a small delay
 		msdelay(100);
