@@ -49,24 +49,26 @@ void readCameraData(uint16_t* raw_camera_data){
  * @param avg_line_data the averaged halves of camera data
  * avg_line_data is a 128 point array so it can be easily rendered on the OLED screen
  * Loop unrolling may be helpful if we ever need this to run faster
+ * - Added 1 degree of loop unrolling
  */
 void split_average(uint16_t* line_data, uint16_t* avg_line_data){
     int j;
     unsigned long accum_left = 0;
     unsigned long accum_right = 0;
+    uint16_t left_avg = 0;
+    uint16_t right_avg = 0;
 
-    for (j = 0; j < 128; j++){
-        if (j < 64)
-            accum_left += line_data[j];
-        else
-            accum_right += line_data[j];
+    for (j = 0; j < 64; j++){
+        accum_left += line_data[j];
+        accum_right += line_data[j+64];
     }
 
-    for (j = 0; j < 128; j++){
-        if (j < 64)
-            avg_line_data[j] = accum_left/64;
-        else
-            avg_line_data[j] = accum_right/64;
+    left_avg = accum_left/64;
+    right_avg = accum_right/64;
+
+    for (j = 0; j < 64; j++){
+        avg_line_data[j] = left_avg;
+        avg_line_data[j+64] = right_avg;
     }
 }
 
