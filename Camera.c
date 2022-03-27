@@ -75,11 +75,23 @@ void split_average(uint16_t* line_data, uint16_t* avg_line_data){
  *
  * @param avg_line_data the averaged halves of camera data
  * @return int
- * If retVal = 1, then the left side has a higher average
- * else, retVal = 0
+ * If retVal = -1, turn to the left
+ * If retVal = 0, go straight (don't change direction)
+ * If retVal = 1, turn to the right
  */
 int determine_direction(uint16_t* avg_line_data){
     int retVal = 0;
-    retVal = (avg_line_data[0] > avg_line_data[64]) ? 1 : 0;
+    int margin = 1000;
+
+    if (avg_line_data[0] > (avg_line_data[64] + 1000)){         // turn left
+        retVal = 1;
+    }
+    else if ((avg_line_data[0] + margin) < avg_line_data[64]){  // turn right
+        retVal = -1;
+    }
+    else {          // go straight
+        retVal = 0;
+    }
+
     return retVal;
 }

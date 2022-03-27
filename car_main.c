@@ -21,7 +21,8 @@
 #include "TimerA.h"
 
 #define USE_OLED
-#define TEST_OLED
+//#define TEST_OLED
+uint16_t max;
 
 #define LEFT_POSITION .05
 #define RIGHT_POSITION .1
@@ -30,8 +31,12 @@
 #define HALF_DUTY_CYCLE(dc) ((dc)/200.0)
 #define QUARTER_DUTY_CYCLE(dc) ((dc)/400.0)
 
-#define LEFT_MOTOR 1
-#define RIGHT_MOTOR 3
+// 3 and 4 motor goes fwd
+// 2 and 3 left
+// 1 and 4 is right
+
+#define LEFT_MOTOR 3
+#define RIGHT_MOTOR 4
 
 // line stores the current array of camera data
 extern unsigned char OLED_clr_data[1024];
@@ -40,6 +45,7 @@ extern unsigned char OLED_GRAPH_ARR[1024];
 uint16_t line[128];
 uint16_t avg_line[128];
 BOOLEAN g_sendData;
+BOOLEAN running = TRUE;
 
 /**
  * @brief simple delay function
@@ -67,7 +73,7 @@ void initSteering(void){
 
 double adjustSteering(int degree, double servo_position){
     // TODO: For now, we are changing the steering angle at a constant rate
-    double constant_rate = 0.005;
+    double constant_rate = 0.008;
 
     // TODO: Double check that the left is the right left, I can't remember which is which
     // left, center, right => .05, .075, .1 => 1ms, 1.5ms, 2ms
@@ -82,24 +88,29 @@ double adjustSteering(int degree, double servo_position){
      */
 
     // 0 = high right avg (turn more right)
-    if (degree == 0){
+    if (degree == 1){
         if(servo_position < CENTER_POSITION){ servo_position = CENTER_POSITION; }
         else{
             servo_position = servo_position + constant_rate;
+            if ( servo_position > RIGHT_POSITION){ servo_position = RIGHT_POSITION; }
         }
 
-        if ( servo_position > RIGHT_POSITION){ servo_position = RIGHT_POSITION; }
     }
 
     // 1 = high left avg (turn more left)
-    else if (degree == 1){
+    else if (degree == -1){
         if(servo_position > CENTER_POSITION){ servo_position = CENTER_POSITION; }
         else{
             servo_position = servo_position - constant_rate;
+            if ( servo_position < LEFT_POSITION){ servo_position = LEFT_POSITION; }
         }
 
-        if ( servo_position > LEFT_POSITION){ servo_position = LEFT_POSITION; }
     }
+
+    else {
+        servo_position = CENTER_POSITION;
+    }
+
     TIMER_A2_PWM_DutyCycle(servo_position, 1);
     return servo_position;
 }
@@ -143,7 +154,7 @@ void initDriving(void){
 
 void adjustDriving(double servo_position, BOOLEAN running){
     // TODO: the driving logic will also be very static
-    double duty_cycle = 10.0;   //  start out testing very slow
+    double duty_cycle = 20.0;   //  start out testing very slow
     double half_turn = 0.025;
 
 
@@ -151,59 +162,69 @@ void adjustDriving(double servo_position, BOOLEAN running){
     double right_limit = CENTER_POSITION + .0025;
     double left_limit = CENTER_POSITION - .0025;
 
-    if(running){
-        if ((servo_position <= right_limit) || (servo_position <= left_limit)){
-            //  motor 1 left => P2.4 & P2.5
-            TIMER_A0_PWM_DutyCycle(duty_cycle/100.0, LEFT_MOTOR);  //  motor 1 left
-
-            //  motor 2 right => P2.6 & P2.7
-            TIMER_A0_PWM_DutyCycle(duty_cycle/100.0, RIGHT_MOTOR);  //  motor 2 right
-        }
-            // if servo position is left (less than center)
-            // trying to turn left, slow down left wheel
-        else if (servo_position < CENTER_POSITION){
-            // Set speed of right wheel
-            TIMER_A0_PWM_DutyCycle(duty_cycle/100.0, RIGHT_MOTOR);  //  motor 2 right
-
-            // if steering is more than half the distance between center and left
-            // cut speed of left by duty_cycle/4
-            if (servo_position < CENTER_POSITION - half_turn){
-                TIMER_A0_PWM_DutyCycle(QUARTER_DUTY_CYCLE(duty_cycle), LEFT_MOTOR);  //  motor 1 left
-            }
-
-                // else cut speed of left by duty_cycle/2
-            else{
-                TIMER_A0_PWM_DutyCycle(HALF_DUTY_CYCLE(duty_cycle), LEFT_MOTOR);  //  motor 1 left
-            }
-        }
-
-            // if servo position is right (more than center)
-            // trying to turn right, slow down right wheel
-        else if (servo_position > CENTER_POSITION){
-            // Set speed of left wheel
-            TIMER_A0_PWM_DutyCycle(duty_cycle/100.0, 1);  //  motor 1 left
-
-            // if steering is more than half the distance between center and right
-            // cut speed of right by duty_cycle/4
-            if (servo_position > CENTER_POSITION + half_turn){
-                TIMER_A0_PWM_DutyCycle(QUARTER_DUTY_CYCLE(duty_cycle), RIGHT_MOTOR);  //  motor 2 right
-            }
-
-                // else cut speed of right by duty_cycle/2
-            else{
-                TIMER_A0_PWM_DutyCycle(HALF_DUTY_CYCLE(duty_cycle), RIGHT_MOTOR);  //  motor 2 right
-            }
-        }
+    if (running){
+        TIMER_A0_PWM_DutyCycle(duty_cycle/100.0, LEFT_MOTOR);
+        TIMER_A0_PWM_DutyCycle(duty_cycle/100.0, RIGHT_MOTOR);
+    } else {
+        TIMER_A0_PWM_DutyCycle(0.0, LEFT_MOTOR);
+        TIMER_A0_PWM_DutyCycle(0.0, RIGHT_MOTOR);
     }
-    else{
-        // set all motors to zero (stopped)
-        TIMER_A0_PWM_DutyCycle(0.0, 1);  //  motor 1 left
 
-        TIMER_A0_PWM_DutyCycle(0.0, 3);  //  motor 2 right
-    }
+    // if(running){
+    //     if ((servo_position <= right_limit) || (servo_position >= left_limit)){
+    //         //  motor 1 left => P2.4 & P2.5
+    //         TIMER_A0_PWM_DutyCycle(duty_cycle/100.0, LEFT_MOTOR);  //  motor 1 left
+
+    //         //  motor 2 right => P2.6 & P2.7
+    //         TIMER_A0_PWM_DutyCycle(duty_cycle/100.0, RIGHT_MOTOR);  //  motor 2 right
+    //     }
+    //         // if servo position is left (less than center)
+    //         // trying to turn left, slow down left wheel
+    //     else if (servo_position < CENTER_POSITION){
+    //         // Set speed of right wheel
+    //         TIMER_A0_PWM_DutyCycle(duty_cycle/100.0, RIGHT_MOTOR);  //  motor 2 right
+
+    //         // if steering is more than half the distance between center and left
+    //         // cut speed of left by duty_cycle/4
+    //         if (servo_position < CENTER_POSITION - half_turn){
+    //             TIMER_A0_PWM_DutyCycle(QUARTER_DUTY_CYCLE(duty_cycle), LEFT_MOTOR);  //  motor 1 left
+    //         }
+
+    //             // else cut speed of left by duty_cycle/2
+    //         else{
+    //             TIMER_A0_PWM_DutyCycle(HALF_DUTY_CYCLE(duty_cycle), LEFT_MOTOR);  //  motor 1 left
+    //         }
+    //     }
+
+    //         // if servo position is right (more than center)
+    //         // trying to turn right, slow down right wheel
+    //     else if (servo_position > CENTER_POSITION){
+    //         // Set speed of left wheel
+    //         TIMER_A0_PWM_DutyCycle(duty_cycle/100.0, 1);  //  motor 1 left
+
+    //         // if steering is more than half the distance between center and right
+    //         // cut speed of right by duty_cycle/4
+    //         if (servo_position > CENTER_POSITION + half_turn){
+    //             TIMER_A0_PWM_DutyCycle(QUARTER_DUTY_CYCLE(duty_cycle), RIGHT_MOTOR);  //  motor 2 right
+    //         }
+
+    //             // else cut speed of right by duty_cycle/2
+    //         else{
+    //             TIMER_A0_PWM_DutyCycle(HALF_DUTY_CYCLE(duty_cycle), RIGHT_MOTOR);  //  motor 2 right
+    //         }
+    //     }
+    // }
+    // else{
+    //     // set all motors to zero (stopped)
+    //     TIMER_A0_PWM_DutyCycle(0.0, 1);  //  motor 1 left
+
+    //     TIMER_A0_PWM_DutyCycle(0.0, 3);  //  motor 2 right
+    // }
 }
 
 void parseCameraData(uint16_t* raw_camera_data, uint16_t* avg_line_data){
+    uint64_t max;
+    int j = 0;
     if (g_sendData == TRUE){
 
         LED1_On();
@@ -213,16 +234,22 @@ void parseCameraData(uint16_t* raw_camera_data, uint16_t* avg_line_data){
         #ifdef USE_OLED
             DisableInterrupts();
             OLED_display_clear();
-            OLED_DisplayCameraData(avg_line_data);
-            // if (direction){
-            //     OLED_draw_line(1, 1, (unsigned char *)"right ");
-            // } else {
-            //     OLED_draw_line(1, 1, (unsigned char *)"left  ");
-            // }
-            // OLED_write_display(OLED_TEXT_ARR);
+            OLED_DisplayCameraData(raw_camera_data);
             EnableInterrupts();
         #endif
-
+        
+        for(j = 0; j < 128; j++){
+            if (max < line[j]){
+                max = line[j];
+            } else {
+                max = max;
+            }
+        }
+        
+        if (max < 4096){
+            running = FALSE;
+        }
+        
         LED1_Off();
         g_sendData = FALSE;
     }
@@ -234,8 +261,8 @@ void parseCameraData(uint16_t* raw_camera_data, uint16_t* avg_line_data){
 void init(void){
     DisableInterrupts();
     LED1_Init();
-    LED2_Init();
-    uart0_init();
+    //LED2_Init();
+    //uart0_init();
     uart2_init();
     INIT_Camera();
     initSteering();
@@ -262,8 +289,9 @@ int main(void){
     int direction = 0;  // 1 = high left avg (turn left) 0 = high right avg (turn right)
     int j = 0;
     int temp = 0;
-    BOOLEAN running = FALSE;
     double servo_position = 0.075;
+    char uart_buffer [20];
+    uint64_t camera_sum = 0;
 
     /* Initializations */
     init();
@@ -284,7 +312,8 @@ int main(void){
     running = TRUE;
 
     // TODO: Only run loop for a short period of time as a safety check at first
-    for (temp = 0; temp < 100; temp++){
+    //for (temp = 0; temp < 100; temp++){
+    for(;;){
 
         parseCameraData(line, avg_line);
         direction = determine_direction(avg_line);
@@ -292,11 +321,19 @@ int main(void){
         // Turn the servo motor
         servo_position = adjustSteering(direction, servo_position);
 
+        sprintf(uart_buffer, "left: %u;    right: %u;   dir: %d;    max: %u\n\r", avg_line[0], avg_line[64], direction, max);
+        uart2_put(uart_buffer);
+//        sprintf(uart_buffer, "servo position: %g\n\r", servo_position);
+//        uart2_put(uart_buffer);
+        camera_sum = 0;
+
+        max = 0;
+        
         // Set the speed the DC motors should spin
         adjustDriving(servo_position, running);
         
 		// do a small delay
-		myDelay();
+		msdelay(100);
     }
 
 
