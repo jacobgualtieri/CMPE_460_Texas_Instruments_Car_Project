@@ -21,8 +21,8 @@
 #include "TimerA.h"
 
 #define USE_OLED
+#define USE_UART
 //#define TEST_OLED
-uint16_t max;
 
 #define LEFT_POSITION .05
 #define RIGHT_POSITION .1
@@ -222,8 +222,8 @@ void adjustDriving(double servo_position, BOOLEAN running){
     // }
 }
 
-void parseCameraData(uint16_t* raw_camera_data, uint16_t* avg_line_data){
-    uint64_t max;
+int parseCameraData(uint16_t* raw_camera_data, uint16_t* avg_line_data){
+    int max;
     int j = 0;
     if (g_sendData == TRUE){
 
@@ -246,13 +246,11 @@ void parseCameraData(uint16_t* raw_camera_data, uint16_t* avg_line_data){
             }
         }
         
-        if (max < 4096){
-            running = FALSE;
-        }
-        
         LED1_Off();
         g_sendData = FALSE;
     }
+
+    return max;
 }
 
 /**
@@ -262,12 +260,14 @@ void init(void){
     DisableInterrupts();
     LED1_Init();
     //LED2_Init();
-    //uart0_init();
-    uart2_init();
     INIT_Camera();
     initSteering();
     initDriving();
 
+    #ifdef USE_UART
+        //uart0_init();
+        uart2_init();
+    #endif
     #ifdef USE_OLED
         OLED_Init();
         OLED_display_on();
@@ -288,10 +288,12 @@ void init(void){
 int main(void){
     int direction = 0;  // 1 = high left avg (turn left) 0 = high right avg (turn right)
     int j = 0;
-    int temp = 0;
+    int camera_line_max = 0;
     double servo_position = 0.075;
-    char uart_buffer [20];
-    uint64_t camera_sum = 0;
+
+    #ifdef USE_UART
+        char uart_buffer [20];
+    #endif
 
     /* Initializations */
     init();
@@ -312,27 +314,28 @@ int main(void){
     running = TRUE;
 
     // TODO: Only run loop for a short period of time as a safety check at first
-    //for (temp = 0; temp < 100; temp++){
     for(;;){
 
-        parseCameraData(line, avg_line);
+        camera_line_max = parseCameraData(line, avg_line);
         direction = determine_direction(avg_line);
 
         // Turn the servo motor
         servo_position = adjustSteering(direction, servo_position);
 
-        sprintf(uart_buffer, "left: %u;    right: %u;   dir: %d;    max: %u\n\r", avg_line[0], avg_line[64], direction, max);
-        uart2_put(uart_buffer);
+        #ifdef USE_UART
+            sprintf(uart_buffer, "left: %u;    right: %u;   dir: %d;    max: %u\n\r", avg_line[0], avg_line[64], direction, camera_line_max);
+            uart2_put(uart_buffer);
 //        sprintf(uart_buffer, "servo position: %g\n\r", servo_position);
 //        uart2_put(uart_buffer);
-        camera_sum = 0;
-
-        max = 0;
+        #endif
         
         // Set the speed the DC motors should spin
         adjustDriving(servo_position, running);
+
+        // Reset local variables
+        camera_line_max = 0;
         
-		// do a small delay
+		// Do a small delay
 		msdelay(100);
     }
 
