@@ -6,7 +6,7 @@
 
 void INIT_Camera(void);
 void readCameraData(uint16_t* raw_camera_data);
-void MovingAverage(uint16_t* line_data, uint16_t* smoothed_line);
+uint16_t MovingAverage(uint16_t* line_data, uint16_t* smoothed_line);
 void split_average(uint16_t* line_data, uint16_t* avg_line_data);
 void slope_finder(uint16_t* line_data, int* result_array);
 int determine_direction(uint16_t* avg_line_data);
