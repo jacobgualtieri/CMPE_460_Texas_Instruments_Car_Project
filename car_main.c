@@ -33,9 +33,16 @@
 #define SHARP_RIGHT     0.095
 #define SLIGHT_RIGHT    0.085
 
+#define CENTER_LEFT  20
+#define LEFT_ZONE1   40     // CENTER_LEFT < left_index < LEFT_ZONE1 : Slight right
+#define LEFT_ZONE2   60     //  LEFT_ZONE1 < left_index < LEFT_ZONE2 : Sharp right
+#define CENTER_RIGHT 108
+#define RIGHT_ZONE1  88
+#define RIGHT_ZONE2  68
+
 /* Slope Index Thresholds */
-#define LOW_LEFT_THRESH  40
-#define LOW_RIGHT_THRESH (128-40)
+#define LOW_LEFT_THRESH  30
+#define LOW_RIGHT_THRESH (128-30)
 
 /* DC Motor Settings */
 // 3 and 4 motor goes fwd
@@ -85,25 +92,37 @@ void initSteering(void){
     TIMER_A2_PWM_Init(CalcPeriodFromFrequency(1000.0), CENTER_POSITION, 1);
 }
 
+/*
+
+Tuning
+
+left threshold: 15
+sharp left:
+
+right: 95
+sharp right:
+
+*/
+
 double adjustSteering(int degree){
     double servo_position = CENTER_POSITION;
     uint16_t left_amt, right_amt;
     uint16_t difference = 0;
     uint16_t threshold = 10000;
     int min_slope, max_slope;
-    int min_idx, max_idx;
+    int left_line_index, right_line_index;
 
     left_amt = steering_array[0];
     right_amt = steering_array[64];
     difference = abs(right_amt - left_amt);
 
-    min_idx = slope_results[0];
-    max_idx = slope_results[1];
+    right_line_index = slope_results[0];
+    left_line_index = slope_results[1];
     min_slope = slope_results[2];
     max_slope = slope_results[3];
 
-    if (LOW_LEFT_THRESH < max_idx){
-        if (64 < max_idx){
+    if (LOW_LEFT_THRESH < left_line_index){
+        if (64 < left_line_index){
             servo_position = SHARP_LEFT;
             LED2_Yellow();
         }
@@ -113,8 +132,8 @@ double adjustSteering(int degree){
         }
     }
     else {
-        if (min_idx < LOW_RIGHT_THRESH){
-            if (min_idx < 64){
+        if (right_line_index < LOW_RIGHT_THRESH){
+            if (right_line_index < 64){
                 servo_position = SHARP_RIGHT;
                 LED2_Yellow();
             }
@@ -258,7 +277,7 @@ uint16_t parseCameraData(uint16_t* raw_camera_data, uint16_t* smoothed_line, uin
         LED1_On();
 
         MovingAverage(raw_camera_data, smoothed_line);
-        split_average(smoothed_line, avg_line_data);
+        //split_average(smoothed_line, avg_line_data);
         slope_finder(smoothed_line, slope_results);
 
         // render camera data onto the OLED display
@@ -293,9 +312,6 @@ int CheckForTrackLoss(uint16_t camera_max, int counter){
 
     if (TRACK_LOSS_LIMIT <= retVal){
         running = FALSE;
-    }
-    else {
-        running = TRUE;
     }
 
     return retVal;
@@ -359,7 +375,7 @@ int main(void){
 
     /* Begin Infinite Loop */
     EnableInterrupts();
-    running = TRUE;
+    running = FALSE;
 
     // TODO: Only run loop for a short period of time as a safety check at first
     for(;;){
@@ -371,7 +387,7 @@ int main(void){
         servo_position = adjustSteering(direction);
 
         #ifdef USE_UART
-            sprintf(uart_buffer, "servo: %g;  min slope:  %d  @  %d;   max slope:  %d  @  %d;\n\r", servo_position, slope_results[2], slope_results[0], slope_results[3], slope_results[1]);
+            sprintf(uart_buffer, "servo: %g;  left line idx:  %d;  right line idx:  %d;\n\r", servo_position, slope_results[1], slope_results[0]);
             uart2_put(uart_buffer);
             uart0_put(uart_buffer);
 //        sprintf(uart_buffer, "servo position: %g\n\r", servo_position);

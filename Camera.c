@@ -78,10 +78,10 @@ void slope_finder(uint16_t* line_data, int* result_array){
     result_array[3] = max_dy;
 }
 
-void MovingAverage(uint16_t* line_data, uint16_t* smoothed_line){
+uint16_t MovingAverage(uint16_t* line_data, uint16_t* smoothed_line){
     int i;
     uint16_t five_p_avg;
-
+    uint16_t max = 0;
 
     for(i = 2; i < 126; i++){
         five_p_avg = line_data[i+2]/5 + line_data[i+1]/5 + line_data[i]/5 + line_data[i-1]/5 + line_data[i-2]/5;
@@ -92,6 +92,8 @@ void MovingAverage(uint16_t* line_data, uint16_t* smoothed_line){
     smoothed_line[1] = line_data[2];
     smoothed_line[126] = line_data[125];
     smoothed_line[127] = line_data[125];
+
+    return max;
 }
 
 /**
