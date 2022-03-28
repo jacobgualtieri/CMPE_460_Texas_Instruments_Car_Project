@@ -78,6 +78,14 @@ void slope_finder(uint16_t* line_data, int* result_array){
     result_array[3] = max_dy;
 }
 
+/**
+ * @brief Calculates the 5-point moving average of the camera line data
+ * and determines the maximum value detected by the camera
+ * 
+ * @param line_data raw camera data
+ * @param smoothed_line smoothed camera data after averaging
+ * @return uint16_t the maximum value of the smoothed camera data
+ */
 uint16_t MovingAverage(uint16_t* line_data, uint16_t* smoothed_line){
     int i;
     uint16_t five_p_avg;
@@ -86,6 +94,9 @@ uint16_t MovingAverage(uint16_t* line_data, uint16_t* smoothed_line){
     for(i = 2; i < 126; i++){
         five_p_avg = line_data[i+2]/5 + line_data[i+1]/5 + line_data[i]/5 + line_data[i-1]/5 + line_data[i-2]/5;
         smoothed_line[i] = five_p_avg;
+
+        if (max < smoothed_line[i])
+            max = smoothed_line[i];
     }
 
     smoothed_line[0] = line_data[2];

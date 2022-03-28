@@ -33,12 +33,12 @@
 #define SHARP_RIGHT     0.095
 #define SLIGHT_RIGHT    0.085
 
-#define CENTER_LEFT  20
-#define LEFT_ZONE1   40     // CENTER_LEFT < left_index < LEFT_ZONE1 : Slight right
-#define LEFT_ZONE2   60     //  LEFT_ZONE1 < left_index < LEFT_ZONE2 : Sharp right
-#define CENTER_RIGHT 108
-#define RIGHT_ZONE1  88
-#define RIGHT_ZONE2  68
+#define CENTER_LEFT  18
+#define LEFT_ZONE1   38     // CENTER_LEFT < left_index < LEFT_ZONE1 : Slight right
+#define LEFT_ZONE2   58     //  LEFT_ZONE1 < left_index < LEFT_ZONE2 : Sharp right
+#define CENTER_RIGHT 102
+#define RIGHT_ZONE1  82
+#define RIGHT_ZONE2  62
 
 /* Slope Index Thresholds */
 #define LOW_LEFT_THRESH  30
@@ -121,31 +121,27 @@ double adjustSteering(int degree){
     min_slope = slope_results[2];
     max_slope = slope_results[3];
 
-    if (LOW_LEFT_THRESH < left_line_index){
-        if (64 < left_line_index){
-            servo_position = SHARP_LEFT;
-            LED2_Yellow();
+    if (left_line_index < CENTER_LEFT){
+        if (CENTER_RIGHT < right_line_index){
+            servo_position = CENTER_POSITION;
+            LED2_Green();
+        }
+        else if ((RIGHT_ZONE2 < right_line_index) && (right_line_index <= CENTER_RIGHT)){
+            servo_position = SLIGHT_LEFT;
+            LED2_Cyan();
         }
         else {
-            servo_position = SLIGHT_LEFT;
-            LED2_Magenta();
+            servo_position = SHARP_LEFT;
+            LED2_Blue();
         }
     }
+    else if ((CENTER_LEFT <= left_line_index) && (left_line_index < LEFT_ZONE2)){
+        servo_position = SLIGHT_RIGHT;
+        LED2_Magenta();
+    }
     else {
-        if (right_line_index < LOW_RIGHT_THRESH){
-            if (right_line_index < 64){
-                servo_position = SHARP_RIGHT;
-                LED2_Yellow();
-            }
-            else {
-                servo_position = SLIGHT_RIGHT;
-                LED2_Magenta();
-            }
-        }
-        else {
-            servo_position = CENTER_POSITION;
-            LED2_Off();
-        }
+        servo_position = SHARP_RIGHT;
+        LED2_Red();
     }
 
     TIMER_A2_PWM_DutyCycle(servo_position, 1);
@@ -272,12 +268,11 @@ void adjustDriving(double servo_position){
 
 uint16_t parseCameraData(uint16_t* raw_camera_data, uint16_t* smoothed_line, uint16_t* avg_line_data){
     uint16_t max;
-    int j = 0;
+    
     if (g_sendData == TRUE){
         LED1_On();
 
-        MovingAverage(raw_camera_data, smoothed_line);
-        //split_average(smoothed_line, avg_line_data);
+        max = MovingAverage(raw_camera_data, smoothed_line);
         slope_finder(smoothed_line, slope_results);
 
         // render camera data onto the OLED display
@@ -287,14 +282,6 @@ uint16_t parseCameraData(uint16_t* raw_camera_data, uint16_t* smoothed_line, uin
             OLED_DisplayCameraData(smoothed_line);
             EnableInterrupts();
         #endif
-        
-        for(j = 0; j < 128; j++){
-            if (max < smoothed_line[j]){
-                max = smoothed_line[j];
-            } else {
-                max = max;
-            }
-        }
         
         LED1_Off();
         g_sendData = FALSE;
@@ -375,7 +362,7 @@ int main(void){
 
     /* Begin Infinite Loop */
     EnableInterrupts();
-    running = FALSE;
+    running = TRUE;
 
     // TODO: Only run loop for a short period of time as a safety check at first
     for(;;){
@@ -390,15 +377,15 @@ int main(void){
             sprintf(uart_buffer, "servo: %g;  left line idx:  %d;  right line idx:  %d;\n\r", servo_position, slope_results[1], slope_results[0]);
             uart2_put(uart_buffer);
             uart0_put(uart_buffer);
-//        sprintf(uart_buffer, "servo position: %g\n\r", servo_position);
-//        uart2_put(uart_buffer);
         #endif
         
         // Set the speed the DC motors should spin
         adjustDriving(servo_position);
 
         // Check for track loss or intersection
-        track_loss_counter = CheckForTrackLoss(camera_line_max, track_loss_counter);
+        //track_loss_counter = CheckForTrackLoss(camera_line_max, track_loss_counter);
+        if ((10 < camera_line_max) && (camera_line_max < 6500))
+            running = FALSE;
 
         // Reset local variables
         camera_line_max = 0;
