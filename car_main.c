@@ -24,23 +24,31 @@
 #define USE_UART
 //#define TEST_OLED
 
-#define LEFT_POSITION .05
-#define RIGHT_POSITION .1
-#define CENTER_POSITION .075
-#define SPEED 21.0  //  start out testing very slow
+/* Servo Positions */
+#define CENTER_POSITION 0.075
+#define LEFT_POSITION   0.05
+#define SHARP_LEFT      0.055
+#define SLIGHT_LEFT     0.065
+#define RIGHT_POSITION  0.1
+#define SHARP_RIGHT     0.095
+#define SLIGHT_RIGHT    0.085
 
-#define HALF_DUTY_CYCLE(dc) ((dc)/200.0)
-#define QUARTER_DUTY_CYCLE(dc) ((dc)/400.0)
-
+/* Slope Index Thresholds */
 #define LOW_LEFT_THRESH  40
 #define LOW_RIGHT_THRESH (128-40)
 
+/* DC Motor Settings */
 // 3 and 4 motor goes fwd
 // 2 and 3 left
 // 1 and 4 is right
-
+#define SPEED 21.0  // start out testing very slow
 #define LEFT_MOTOR 3
 #define RIGHT_MOTOR 4
+#define HALF_DUTY_CYCLE(dc) ((dc)/200.0)
+#define QUARTER_DUTY_CYCLE(dc) ((dc)/400.0)
+
+/* Track Loss Limit */
+#define TRACK_LOSS_LIMIT 3
 
 // line stores the current array of camera data
 extern unsigned char OLED_clr_data[1024];
@@ -74,15 +82,11 @@ void msdelay(int delay){
 void initSteering(void){
     // Setup steering to be centered
     // PWM -> f = 1kHz, T = 20ms, center = 1.5ms
-    TIMER_A2_PWM_Init(CalcPeriodFromFrequency(1000.0), 0.075, 1);
+    TIMER_A2_PWM_Init(CalcPeriodFromFrequency(1000.0), CENTER_POSITION, 1);
 }
 
 double adjustSteering(int degree){
     double servo_position = CENTER_POSITION;
-    double big_left = .055;
-    double small_left = .065;
-    double small_right = .085;
-    double big_right = .95;
     uint16_t left_amt, right_amt;
     uint16_t difference = 0;
     uint16_t threshold = 10000;
@@ -100,58 +104,30 @@ double adjustSteering(int degree){
 
     if (LOW_LEFT_THRESH < max_idx){
         if (64 < max_idx){
-            servo_position = big_left;
+            servo_position = SHARP_LEFT;
+            LED2_Yellow();
         }
         else {
-            servo_position = small_left;
+            servo_position = SLIGHT_LEFT;
+            LED2_Magenta();
         }
     }
     else {
         if (min_idx < LOW_RIGHT_THRESH){
             if (min_idx < 64){
-                servo_position = big_right;
+                servo_position = SHARP_RIGHT;
+                LED2_Yellow();
             }
             else {
-                servo_position = small_right;
+                servo_position = SLIGHT_RIGHT;
+                LED2_Magenta();
             }
         }
         else {
             servo_position = CENTER_POSITION;
+            LED2_Off();
         }
     }
-
-    // if (degree == 1){   //  turn right
-    //     if (difference > threshold){
-    //         servo_position = big_right;
-    //         LED2_Off();
-    //         LED2_Magenta();
-    //     }
-    //     else{
-    //         servo_position = small_right;
-    //         LED2_Off();
-    //         LED2_Yellow();
-    //     }
-
-    // }
-
-
-    // else if (degree == -1){ //  turn left
-    //     if (difference > threshold){
-    //         servo_position = big_left;
-    //         LED2_Off();
-    //         LED2_Magenta();
-    //     }
-    //     else{
-    //         servo_position = small_left;
-    //         LED2_Off();
-    //         LED2_Yellow();
-    //     }
-    // }
-
-    // else {
-    //     servo_position = CENTER_POSITION;
-    //     LED2_Off();
-    // }
 
     TIMER_A2_PWM_DutyCycle(servo_position, 1);
     return servo_position;
@@ -275,8 +251,8 @@ void adjustDriving(double servo_position){
     // }
 }
 
-int parseCameraData(uint16_t* raw_camera_data, uint16_t* smoothed_line, uint16_t* avg_line_data){
-    int max;
+uint16_t parseCameraData(uint16_t* raw_camera_data, uint16_t* smoothed_line, uint16_t* avg_line_data){
+    uint16_t max;
     int j = 0;
     if (g_sendData == TRUE){
         LED1_On();
@@ -306,6 +282,23 @@ int parseCameraData(uint16_t* raw_camera_data, uint16_t* smoothed_line, uint16_t
     }
 
     return max;
+}
+
+int CheckForTrackLoss(uint16_t camera_max, int counter){
+    int retVal = counter;
+
+    if ((10 < camera_max) && (camera_max < 6500)){
+        retVal = counter + 1;
+    }
+
+    if (TRACK_LOSS_LIMIT <= retVal){
+        running = FALSE;
+    }
+    else {
+        running = TRUE;
+    }
+
+    return retVal;
 }
 
 /**
@@ -342,7 +335,8 @@ void init(void){
 
 int main(void){
     int direction = 0;  // 1 = high left avg (turn left) 0 = high right avg (turn right)
-    int camera_line_max = 0;
+    uint16_t camera_line_max = 0;
+    int track_loss_counter = 0;
     double servo_position = 0.075;
 
     #ifdef USE_UART
@@ -366,7 +360,6 @@ int main(void){
     /* Begin Infinite Loop */
     EnableInterrupts();
     running = TRUE;
-    LED2_Green();
 
     // TODO: Only run loop for a short period of time as a safety check at first
     for(;;){
@@ -388,10 +381,8 @@ int main(void){
         // Set the speed the DC motors should spin
         adjustDriving(servo_position);
 
-        if ((10 < camera_line_max) && (camera_line_max < 6500)){
-            running = FALSE;
-            LED2_Off();
-        }
+        // Check for track loss or intersection
+        track_loss_counter = CheckForTrackLoss(camera_line_max, track_loss_counter);
 
         // Reset local variables
         camera_line_max = 0;
