@@ -42,20 +42,56 @@ void readCameraData(uint16_t* raw_camera_data){
     }
 }
 
+void slope_finder(uint16_t* line_data, int* result_array){
+    int j = 0;
+    int dy = 0;
+    int max_dy = 0;
+    int max_idx = 0;
+    int min_dy = 0;
+    int min_idx = 0;
+
+    for (j = 0; j < 127; j++){
+
+        dy = line_data[j+1] - line_data[j];
+
+        if (max_dy < dy){
+            max_dy = dy;
+            max_idx = j;
+        } else {
+            max_dy = max_dy;
+            max_idx = max_idx;
+        }
+
+        if (dy < min_dy){
+            min_dy = dy;
+            min_idx = j;
+        } else {
+            min_dy = min_dy;
+            min_idx = min_idx;
+        }
+    }
+
+    // save results to global array
+    result_array[0] = min_idx;
+    result_array[1] = max_idx;
+    result_array[2] = min_dy;
+    result_array[3] = max_dy;
+}
+
 void MovingAverage(uint16_t* line_data, uint16_t* smoothed_line){
     int i;
     uint16_t five_p_avg;
 
-    smoothed_line[0] = line_data[0];
-    smoothed_line[1] = line_data[1];
 
     for(i = 2; i < 126; i++){
         five_p_avg = line_data[i+2]/5 + line_data[i+1]/5 + line_data[i]/5 + line_data[i-1]/5 + line_data[i-2]/5;
         smoothed_line[i] = five_p_avg;
     }
 
-    smoothed_line[126] = line_data[126];
-    smoothed_line[127] = line_data[127];
+    smoothed_line[0] = line_data[2];
+    smoothed_line[1] = line_data[2];
+    smoothed_line[126] = line_data[125];
+    smoothed_line[127] = line_data[125];
 }
 
 /**
@@ -99,7 +135,7 @@ void split_average(uint16_t* line_data, uint16_t* avg_line_data){
  */
 int determine_direction(uint16_t* avg_line_data){
     int retVal = 0;
-    int margin = 1000;
+    int margin = 2000;
     
     uint16_t left_amt, right_amt;
     
