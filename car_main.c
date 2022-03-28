@@ -21,16 +21,19 @@
 #include "TimerA.h"
 
 #define USE_OLED
-//#define USE_UART
+#define USE_UART
 //#define TEST_OLED
 
 #define LEFT_POSITION .05
 #define RIGHT_POSITION .1
 #define CENTER_POSITION .075
-#define SPEED 20.0  //  start out testing very slow
+#define SPEED 21.0  //  start out testing very slow
 
 #define HALF_DUTY_CYCLE(dc) ((dc)/200.0)
 #define QUARTER_DUTY_CYCLE(dc) ((dc)/400.0)
+
+#define LOW_LEFT_THRESH  40
+#define LOW_RIGHT_THRESH (128-40)
 
 // 3 and 4 motor goes fwd
 // 2 and 3 left
@@ -46,6 +49,7 @@ extern unsigned char OLED_GRAPH_ARR[1024];
 uint16_t line[128];             // raw
 uint16_t smoothed_line[128];    // 5-point average of raw data
 uint16_t steering_array[128];         
+int slope_results[4];
 BOOLEAN g_sendData;
 BOOLEAN running = TRUE;
 
@@ -73,41 +77,81 @@ void initSteering(void){
     TIMER_A2_PWM_Init(CalcPeriodFromFrequency(1000.0), 0.075, 1);
 }
 
-double adjustSteering(int degree, double servo_position){
-    double big_right = .09;
-    double small_right = .085;
-    double big_left = .06;
+double adjustSteering(int degree){
+    double servo_position = CENTER_POSITION;
+    double big_left = .055;
     double small_left = .065;
+    double small_right = .085;
+    double big_right = .95;
     uint16_t left_amt, right_amt;
+    uint16_t difference = 0;
+    uint16_t threshold = 10000;
+    int min_slope, max_slope;
+    int min_idx, max_idx;
 
     left_amt = steering_array[0];
     right_amt = steering_array[64];
-    uint16_t difference = abs(right_amt - left_amt);
-    uint16_t threshold = 1000;
+    difference = abs(right_amt - left_amt);
 
-    if (degree == 1){   //  turn right
-        if (difference > threshold){
-            servo_position = big_right;
-        }
-        else{
-            servo_position = small_right;
-        }
+    min_idx = slope_results[0];
+    max_idx = slope_results[1];
+    min_slope = slope_results[2];
+    max_slope = slope_results[3];
 
-    }
-
-
-    else if (degree == -1){ //  turn left
-        if (difference > threshold){
+    if (LOW_LEFT_THRESH < max_idx){
+        if (64 < max_idx){
             servo_position = big_left;
         }
-        else{
+        else {
             servo_position = small_left;
         }
     }
-
     else {
-        servo_position = CENTER_POSITION;
+        if (min_idx < LOW_RIGHT_THRESH){
+            if (min_idx < 64){
+                servo_position = big_right;
+            }
+            else {
+                servo_position = small_right;
+            }
+        }
+        else {
+            servo_position = CENTER_POSITION;
+        }
     }
+
+    // if (degree == 1){   //  turn right
+    //     if (difference > threshold){
+    //         servo_position = big_right;
+    //         LED2_Off();
+    //         LED2_Magenta();
+    //     }
+    //     else{
+    //         servo_position = small_right;
+    //         LED2_Off();
+    //         LED2_Yellow();
+    //     }
+
+    // }
+
+
+    // else if (degree == -1){ //  turn left
+    //     if (difference > threshold){
+    //         servo_position = big_left;
+    //         LED2_Off();
+    //         LED2_Magenta();
+    //     }
+    //     else{
+    //         servo_position = small_left;
+    //         LED2_Off();
+    //         LED2_Yellow();
+    //     }
+    // }
+
+    // else {
+    //     servo_position = CENTER_POSITION;
+    //     LED2_Off();
+    // }
 
     TIMER_A2_PWM_DutyCycle(servo_position, 1);
     return servo_position;
@@ -159,13 +203,13 @@ void adjustDriving(double servo_position){
     if (running){
 
         if (servo_position < CENTER_POSITION){
-            TIMER_A0_PWM_DutyCycle(((3*SPEED)/4)/100.0, LEFT_MOTOR);
-            TIMER_A0_PWM_DutyCycle(SPEED/100.0, RIGHT_MOTOR);
+            TIMER_A0_PWM_DutyCycle(((5.0*SPEED)/6.0)/100.0, LEFT_MOTOR);
+            TIMER_A0_PWM_DutyCycle((2.0+SPEED)/100.0, RIGHT_MOTOR);
 
         }
         else if ( servo_position > CENTER_POSITION ) {
-            TIMER_A0_PWM_DutyCycle(SPEED/100.0, LEFT_MOTOR);
-            TIMER_A0_PWM_DutyCycle(((3*SPEED)/4)/100.0, RIGHT_MOTOR);
+            TIMER_A0_PWM_DutyCycle((2.0+SPEED)/100.0, LEFT_MOTOR);
+            TIMER_A0_PWM_DutyCycle(((5.0*SPEED)/6.0)/100.0, RIGHT_MOTOR);
 
         }
         else{
@@ -235,10 +279,11 @@ int parseCameraData(uint16_t* raw_camera_data, uint16_t* smoothed_line, uint16_t
     int max;
     int j = 0;
     if (g_sendData == TRUE){
-
         LED1_On();
+
         MovingAverage(raw_camera_data, smoothed_line);
         split_average(smoothed_line, avg_line_data);
+        slope_finder(smoothed_line, slope_results);
 
         // render camera data onto the OLED display
         #ifdef USE_OLED
@@ -330,10 +375,10 @@ int main(void){
         direction = determine_direction(steering_array);
 
         // Turn the servo motor
-        servo_position = adjustSteering(direction, servo_position);
+        servo_position = adjustSteering(direction);
 
         #ifdef USE_UART
-            sprintf(uart_buffer, "left: %u;    right: %u;   dir: %d;    max: %u\n\r", avg_line[0], avg_line[64], direction, camera_line_max);
+            sprintf(uart_buffer, "servo: %g;  min slope:  %d  @  %d;   max slope:  %d  @  %d;\n\r", servo_position, slope_results[2], slope_results[0], slope_results[3], slope_results[1]);
             uart2_put(uart_buffer);
             uart0_put(uart_buffer);
 //        sprintf(uart_buffer, "servo position: %g\n\r", servo_position);

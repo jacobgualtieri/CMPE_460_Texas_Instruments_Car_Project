@@ -6,3 +6,14 @@ Come see live racing of autonomous 1/18-scale cars created by RIT Computer Engin
 
 ## Authors
 Jacob Gualtieri & Zeb Hollinger
+
+## Steering Notes
+Find the left and right sides of the track from the smoothed camera data
+
+If the left edge is beyond threshold A from the center, turn left a little
+If the left edge is beyond [64], turn left a lot
+
+If the right edge is beyond threshold A from the center, turn right a little
+If the right edge is beyond [64] , turn right a lot
+
+These thresholds correspond to indexes in the [128] array
