@@ -34,13 +34,12 @@
 #define SLIGHT_RIGHT      0.085   //  .01 from center
 #define ADJUSTMENT_THRESH 7800
 
+/* Directional Thresholds */
 #define CENTER_LEFT_IDX  58
 #define CENTER_RIGHT_IDX 76
+#define RIGHT_IDX_OFFSET 12
 
-/* Slope Index Thresholds */
-#define LOW_LEFT_THRESH  30
-#define LOW_RIGHT_THRESH (128-30)
-
+/* Midpoint Calculation */
 #define MIDPOINT(L_IDX,R_IDX) (((L_IDX) + (R_IDX))/2)
 
 /* Speed Settings */
@@ -110,52 +109,40 @@ double adjustSteering(max_and_mins_t line_stats, double current_servo_position){
     int left_line_index, right_line_index;
     int track_midpoint_idx = 64;
 
-    right_line_index = slope_results[0] - 12;
+    right_line_index = slope_results[0] - RIGHT_IDX_OFFSET;
     left_line_index = slope_results[1];
     right_amt = -1 * slope_results[2];
     left_amt = slope_results[3];
     
-    if (6800 < line_stats.min){
+    if (6800 < line_stats.min){     // If the lowest value detected is fairly high, we can go straight ahead
         servo_position = CENTER_POSITION;
     }
     else if (line_stats.max > ADJUSTMENT_THRESH){
-        if (right_line_index > left_line_index){    //  center, slight right, slight left, edge case
+        if (right_line_index > left_line_index){    //  Standard Cases: center, slight right, slight left
             track_midpoint_idx = MIDPOINT(left_line_index, right_line_index);   
             if ((track_midpoint_idx >= CENTER_LEFT_IDX) && (track_midpoint_idx <= CENTER_RIGHT_IDX)){  // drive straight
                 servo_position = CENTER_POSITION;
                 LED2_Green();
             }
             else{
-                if(track_midpoint_idx > CENTER_RIGHT_IDX){    //  slight right
+                if(track_midpoint_idx > CENTER_RIGHT_IDX){      //  slight left
                     servo_position = SLIGHT_LEFT;
                     LED2_Magenta();
                 }
-                else if (track_midpoint_idx < CENTER_LEFT_IDX){  //  slight left
+                else if (track_midpoint_idx < CENTER_LEFT_IDX){ //  slight right
                     servo_position = SLIGHT_RIGHT;
                     LED2_Cyan();
                 }
             }
         }
-        else {
-            if(left_amt > right_amt){   //  big right 
-                // if (current_servo_position == SHARP_LEFT){
-                //     servo_position = SLIGHT_LEFT;
-                //     LED2_Magenta();
-                // }
-                // else {
-                    servo_position = SHARP_LEFT;
-                    LED2_Red();
-                // }
+        else {      // Directional Error Cases
+            if (left_amt > right_amt){  //  big left
+                servo_position = SHARP_LEFT;
+                LED2_Red();
             }
-            else {                       //  big left
-                // if (current_servo_position == SHARP_RIGHT){
-                //     servo_position = SLIGHT_RIGHT;
-                //     LED2_Cyan();
-                // }
-                // else {
-                    servo_position = SHARP_RIGHT;
-                    LED2_Blue();
-                // }
+            else {                      // big right
+                servo_position = SHARP_RIGHT;
+                LED2_Blue();
             }
         }
     }
