@@ -36,15 +36,15 @@
 #define ADJUSTMENT_THRESH 7800
 
 /* Directional Thresholds */
-#define CENTER_LEFT_IDX  58
-#define CENTER_RIGHT_IDX 76
-#define RIGHT_IDX_OFFSET 15
+#define CENTER_LEFT_IDX  54
+#define CENTER_RIGHT_IDX 74
+#define RIGHT_IDX_OFFSET 0
 
 /* Midpoint Calculation */
 #define MIDPOINT(L_IDX,R_IDX) (((L_IDX) + (R_IDX))/2)
 
 /* Speed Settings */
-#define STRAIGHTS_SPEED 23.5
+#define STRAIGHTS_SPEED 21.0
 #define SPEED           23.5
 
 /* DC Motor Settings */
