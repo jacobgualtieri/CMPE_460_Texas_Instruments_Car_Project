@@ -261,6 +261,15 @@ int CheckForTrackLoss(uint16_t camera_max, int counter){
     return retVal;
 }
 
+BOOLEAN isOffTrack(uint16_t camera_max){
+    if ((10 < camera_max) && (camera_max < 6500)){
+        return TRUE;
+    }
+    else{
+        return FALSE;
+    }
+}
+
 /**
  * @brief initializes LED1, LED2, UART, OLED, and PWM
  */
@@ -305,7 +314,7 @@ int main(void){
 
     /* Initializations */
     init();
-    
+
     /* Test OLED Display*/
     #ifdef TEST_OLED
         OLED_draw_line(1, 1, (unsigned char *)"Hello World");   // casting strings to (unsigned char *) bc keil is stupid
@@ -335,44 +344,26 @@ int main(void){
             uart2_put(uart_buffer);
             uart0_put(uart_buffer);
         #endif
-        
+
         // Set the speed the DC motors should spin
         adjustDriving(servo_position);
 
         // Check for track loss or intersection
-        //track_loss_counter = CheckForTrackLoss(camera_line_max, track_loss_counter);
-        if ((10 < camera_line_max) && (camera_line_max < 6500))
-            running = FALSE;
+        if (isOffTrack(camera_line_max)) {
+            track_loss_counter += 1;    //  if off track increment counter
+        }
+        else {
+            track_loss_counter = 0; //  if on track, reset counter to zero
+        }
+
+        // carpet detection reached count limit
+        if(track_loss_counter > TRACK_LOSS_LIMIT){ running = FALSE; }
+
 
         // Reset local variables
         camera_line_max = 0;
-        
+
 		// Do a small delay
 		msdelay(10);
     }
-
-
-    // TODO: Use this formatting instead for a clear, understandable main loop
-//    for(;;){
-//
-//        // Read the line scan camera data
-//        readCameraData(line);
-//
-//
-//        // Smooth and filter the raw data
-//
-//
-//        // Determine the degree to turn the servo
-//        direction = determine_direction(avg_line);
-//
-//
-//        // Turn the servo motor
-//        servo_position = adjustSteering(direction, servo_position);
-//
-//        // Set the speed the DC motors should spin
-//        adjustDriving(servo_position, running);
-//
-//        // do a small delay
-//        myDelay();
-//    }
 }
