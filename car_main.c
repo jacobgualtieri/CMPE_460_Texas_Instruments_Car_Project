@@ -20,14 +20,14 @@
 #include "Camera.h"
 #include "TimerA.h"
 
-//#define USE_OLED
+#define USE_OLED
 //#define USE_UART
 //#define TEST_OLED
 
 /* Servo Positions */
 #define CENTER_POSITION   0.075
 #define LEFT_POSITION     0.05
-#define SHARP_LEFT        0.05   //  .005 from slight left
+#define SHARP_LEFT        0.044   //  .005 from slight left
 #define SLIGHT_LEFT       0.059   //  .01 from center
 #define RIGHT_POSITION    0.1
 #define SHARP_RIGHT       0.091   //  .005 from slight right
@@ -35,15 +35,15 @@
 #define ADJUSTMENT_THRESH 7800
 
 /* Directional Thresholds */
-#define CENTER_LEFT_IDX  58
-#define CENTER_RIGHT_IDX 76
-#define RIGHT_IDX_OFFSET 15
+#define CENTER_LEFT_IDX  54
+#define CENTER_RIGHT_IDX 74
+#define RIGHT_IDX_OFFSET 0
 
 /* Midpoint Calculation */
 #define MIDPOINT(L_IDX,R_IDX) (((L_IDX) + (R_IDX))/2)
 
 /* Speed Settings */
-#define STRAIGHTS_SPEED 23.5
+#define STRAIGHTS_SPEED 21.0
 #define SPEED           23.5  // start out testing very slow
 
 /* DC Motor Settings */
@@ -56,6 +56,9 @@
 /* Track Loss Limit */
 #define TRACK_LOSS_LIMIT 5
 
+/* Camera Data Shift Amount */
+#define SHIFT_AMOUNT 0
+
 // line stores the current array of camera data
 extern unsigned char OLED_clr_data[1024];
 extern unsigned char OLED_TEXT_ARR[1024];
@@ -64,7 +67,7 @@ uint16_t line[128];             // raw
 uint16_t smoothed_line[128];    // 5-point average of raw data
 uint16_t steering_array[128];
 BOOLEAN g_sendData;
-BOOLEAN running = TRUE;
+BOOLEAN running = FALSE;
 
 /**
  * @brief simple delay function
@@ -220,7 +223,7 @@ line_stats_t parseCameraData(uint16_t* raw_camera_data, uint16_t* smoothed_line,
     if (g_sendData == TRUE){
         LED1_On();
 
-        MovingAverage(raw_camera_data, smoothed_line, &line_stats);
+        MovingAverageWithShift(raw_camera_data, smoothed_line, &line_stats, SHIFT_AMOUNT);
         slope_finder(smoothed_line, &line_stats);
 
         // render camera data onto the OLED display

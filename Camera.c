@@ -95,18 +95,31 @@ void MovingAverageWithShift(uint16_t* line_data, uint16_t* smoothed_line, line_s
 
     for(i = 2; i < 126; i++){
         five_p_avg = line_data[i+2]/5 + line_data[i+1]/5 + line_data[i]/5 + line_data[i-1]/5 + line_data[i-2]/5;
-        smoothed_line[i] = five_p_avg;
+        if ((0 <= (i+shift_amt)) && ((i+shift_amt) < 128))
+            smoothed_line[i+shift_amt] = five_p_avg;
 
-        if (max < smoothed_line[i])
-            max = smoothed_line[i];
-        else if (smoothed_line[i] < min)
-            min = smoothed_line[i];
+        if (max < five_p_avg)
+            max = five_p_avg;
+        else if (five_p_avg < min)
+            min = five_p_avg;
     }
 
-    smoothed_line[0] = line_data[2];
-    smoothed_line[1] = line_data[2];
-    smoothed_line[126] = line_data[125];
-    smoothed_line[127] = line_data[125];
+    if (0 == shift_amt){
+        smoothed_line[0] = smoothed_line[2];
+        smoothed_line[1] = smoothed_line[2];
+        smoothed_line[126] = smoothed_line[125];
+        smoothed_line[127] = smoothed_line[125];
+    }
+    else if ((126 + (shift_amt)) < 128){
+        for (i = (126 + (shift_amt)); i < 128; i++){
+            smoothed_line[i] = smoothed_line[125+shift_amt];
+        }
+    }
+    else if (0 < (2+shift_amt)){
+        for (i = 0; i < (2+shift_amt); i++){
+            smoothed_line[i] = smoothed_line[2+shift_amt];
+        }
+    }
     
     stat_collection->max = max;
     stat_collection->min = min;
