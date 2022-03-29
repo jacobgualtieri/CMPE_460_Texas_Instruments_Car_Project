@@ -87,7 +87,7 @@ void slope_finder(uint16_t* line_data, line_stats_t* stat_collection){
  * @param smoothed_line smoothed camera data after averaging
  * @return uint16_t the maximum value of the smoothed camera data
  */
-void MovingAverage(uint16_t* line_data, uint16_t* smoothed_line, line_stats_t* stat_collection){
+void MovingAverageWithShift(uint16_t* line_data, uint16_t* smoothed_line, line_stats_t* stat_collection, int shift_amt){
     int i;
     uint16_t five_p_avg;
     uint16_t max = 0;
