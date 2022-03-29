@@ -27,8 +27,8 @@
 /* Servo Positions */
 #define CENTER_POSITION   0.075
 #define LEFT_POSITION     0.05
-#define SHARP_LEFT        0.057   //  .005 from slight left
-#define SLIGHT_LEFT       0.065   //  .01 from center
+#define SHARP_LEFT        0.051   //  .005 from slight left
+#define SLIGHT_LEFT       0.062   //  .01 from center
 #define RIGHT_POSITION    0.1
 #define SHARP_RIGHT       0.091   //  .005 from slight right
 #define SLIGHT_RIGHT      0.085   //  .01 from center
@@ -43,15 +43,16 @@
 
 #define MIDPOINT(L_IDX,R_IDX) (((L_IDX) + (R_IDX))/2)
 
+/* Speed Settings */
+#define STRAIGHTS_SPEED 20.0
+#define SPEED           23.5  // start out testing very slow
+
 /* DC Motor Settings */
 // 3 and 4 motor goes fwd
 // 2 and 3 left
 // 1 and 4 is right
-#define SPEED 23.5  // start out testing very slow
 #define LEFT_MOTOR 3
 #define RIGHT_MOTOR 4
-#define HALF_DUTY_CYCLE(dc) ((dc)/200.0)
-#define QUARTER_DUTY_CYCLE(dc) ((dc)/400.0)
 
 /* Track Loss Limit */
 #define TRACK_LOSS_LIMIT 3
@@ -109,7 +110,7 @@ double adjustSteering(max_and_mins_t line_stats, double current_servo_position){
     int left_line_index, right_line_index;
     int track_midpoint_idx = 64;
 
-    right_line_index = slope_results[0];
+    right_line_index = slope_results[0] - 12;
     left_line_index = slope_results[1];
     right_amt = -1 * slope_results[2];
     left_amt = slope_results[3];
@@ -204,7 +205,7 @@ void adjustDriving(double servo_position){
     if (running){
         if (servo_position == SHARP_LEFT){
             TIMER_A0_PWM_DutyCycle((SPEED-4.0)/100.0, LEFT_MOTOR);
-            TIMER_A0_PWM_DutyCycle((4.0+SPEED)/100.0, RIGHT_MOTOR);
+            TIMER_A0_PWM_DutyCycle((7.0+SPEED)/100.0, RIGHT_MOTOR);
 
         }
         else if ( servo_position == SHARP_RIGHT ) {
@@ -213,8 +214,8 @@ void adjustDriving(double servo_position){
 
         }
         else{
-            TIMER_A0_PWM_DutyCycle(20.0/100.0, LEFT_MOTOR);
-            TIMER_A0_PWM_DutyCycle(20.0/100.0, RIGHT_MOTOR);
+            TIMER_A0_PWM_DutyCycle(STRAIGHTS_SPEED/100.0, LEFT_MOTOR);
+            TIMER_A0_PWM_DutyCycle(STRAIGHTS_SPEED/100.0, RIGHT_MOTOR);
         }
     }
     else {
@@ -245,20 +246,6 @@ max_and_mins_t parseCameraData(uint16_t* raw_camera_data, uint16_t* smoothed_lin
     }
 
     return line_stats;
-}
-
-int CheckForTrackLoss(uint16_t camera_max, int counter){
-    int retVal = counter;
-
-    if ((10 < camera_max) && (camera_max < 6500)){
-        retVal = counter + 1;
-    }
-
-    if (TRACK_LOSS_LIMIT <= retVal){
-        running = FALSE;
-    }
-
-    return retVal;
 }
 
 BOOLEAN isOffTrack(uint16_t camera_max){
