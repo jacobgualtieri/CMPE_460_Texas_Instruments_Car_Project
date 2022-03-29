@@ -20,14 +20,14 @@
 #include "Camera.h"
 #include "TimerA.h"
 
-#define USE_OLED
+//#define USE_OLED
 //#define USE_UART
 //#define TEST_OLED
 
 /* Servo Positions */
 #define CENTER_POSITION   0.075
 #define LEFT_POSITION     0.05
-#define SHARP_LEFT        0.059   //  .005 from slight left
+#define SHARP_LEFT        0.057   //  .005 from slight left
 #define SLIGHT_LEFT       0.065   //  .01 from center
 #define RIGHT_POSITION    0.1
 #define SHARP_RIGHT       0.091   //  .005 from slight right
@@ -47,7 +47,7 @@
 // 3 and 4 motor goes fwd
 // 2 and 3 left
 // 1 and 4 is right
-#define SPEED 23.0  // start out testing very slow
+#define SPEED 23.5  // start out testing very slow
 #define LEFT_MOTOR 3
 #define RIGHT_MOTOR 4
 #define HALF_DUTY_CYCLE(dc) ((dc)/200.0)
