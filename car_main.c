@@ -21,7 +21,7 @@
 #include "TimerA.h"
 
 //#define USE_OLED
-#define USE_UART
+//#define USE_UART
 //#define TEST_OLED
 
 /* Servo Positions */
