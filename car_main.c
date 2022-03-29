@@ -21,24 +21,21 @@
 #include "TimerA.h"
 
 #define USE_OLED
-#define USE_UART
+//#define USE_UART
 //#define TEST_OLED
 
 /* Servo Positions */
-#define CENTER_POSITION 0.075
-#define LEFT_POSITION   0.05
-#define SHARP_LEFT      0.055
-#define SLIGHT_LEFT     0.065
-#define RIGHT_POSITION  0.1
-#define SHARP_RIGHT     0.095
-#define SLIGHT_RIGHT    0.085
+#define CENTER_POSITION   0.075
+#define LEFT_POSITION     0.05
+#define SHARP_LEFT        0.059   //  .005 from slight left
+#define SLIGHT_LEFT       0.065   //  .01 from center
+#define RIGHT_POSITION    0.1
+#define SHARP_RIGHT       0.091   //  .005 from slight right
+#define SLIGHT_RIGHT      0.085   //  .01 from center
+#define ADJUSTMENT_THRESH 7800
 
-#define CENTER_LEFT  18
-#define LEFT_ZONE1   38     // CENTER_LEFT < left_index < LEFT_ZONE1 : Slight right
-#define LEFT_ZONE2   58     //  LEFT_ZONE1 < left_index < LEFT_ZONE2 : Sharp right
-#define CENTER_RIGHT 110
-#define RIGHT_ZONE1  90
-#define RIGHT_ZONE2  70
+#define CENTER_LEFT_IDX  58
+#define CENTER_RIGHT_IDX 76
 
 /* Slope Index Thresholds */
 #define LOW_LEFT_THRESH  30
@@ -50,7 +47,7 @@
 // 3 and 4 motor goes fwd
 // 2 and 3 left
 // 1 and 4 is right
-#define SPEED 21.0  // start out testing very slow
+#define SPEED 23.0  // start out testing very slow
 #define LEFT_MOTOR 3
 #define RIGHT_MOTOR 4
 #define HALF_DUTY_CYCLE(dc) ((dc)/200.0)
@@ -106,100 +103,61 @@ sharp right:
 
 */
 
-double adjustSteering(int degree){
-    double servo_position = CENTER_POSITION;
+double adjustSteering(max_and_mins_t line_stats, double current_servo_position){
+    double servo_position = current_servo_position;
     uint16_t left_amt, right_amt;
-    uint16_t difference = 0;
-    uint16_t threshold = 10000;
-    int min_slope, max_slope;
     int left_line_index, right_line_index;
     int track_midpoint_idx = 64;
-    
-    double rl_ratio = 0;
-
-//    left_amt = steering_array[0];
-//    right_amt = steering_array[64];
-//    difference = abs(right_amt - left_amt);
 
     right_line_index = slope_results[0];
     left_line_index = slope_results[1];
-    min_slope = slope_results[2];
-    max_slope = slope_results[3];
+    right_amt = -1 * slope_results[2];
+    left_amt = slope_results[3];
     
-    if (right_line_index > left_line_index){    //  center, slight right, slight left, edge case
-        rl_ratio = right_amt/left_amt;
-        if ((rl_ratio > 0) && (rl_ratio < 2)){
+    if (6800 < line_stats.min){
+        servo_position = CENTER_POSITION;
+    }
+    else if (line_stats.max > ADJUSTMENT_THRESH){
+        if (right_line_index > left_line_index){    //  center, slight right, slight left, edge case
             track_midpoint_idx = MIDPOINT(left_line_index, right_line_index);   
-            if ((track_midpoint_idx >= 60) && (track_midpoint_idx <= 68)){  // drive straight
+            if ((track_midpoint_idx >= CENTER_LEFT_IDX) && (track_midpoint_idx <= CENTER_RIGHT_IDX)){  // drive straight
                 servo_position = CENTER_POSITION;
                 LED2_Green();
             }
             else{
-                if(track_midpoint_idx > 68){    //  slight right
-                    servo_position = SLIGHT_RIGHT;
+                if(track_midpoint_idx > CENTER_RIGHT_IDX){    //  slight right
+                    servo_position = SLIGHT_LEFT;
                     LED2_Magenta();
                 }
-                else if (track_midpoint_idx < 60){  //  slight left
-                    servo_position = SLIGHT_LEFT;
+                else if (track_midpoint_idx < CENTER_LEFT_IDX){  //  slight left
+                    servo_position = SLIGHT_RIGHT;
                     LED2_Cyan();
                 }
             }
-             
+        }
+        else {
+            if(left_amt > right_amt){   //  big right 
+                // if (current_servo_position == SHARP_LEFT){
+                //     servo_position = SLIGHT_LEFT;
+                //     LED2_Magenta();
+                // }
+                // else {
+                    servo_position = SHARP_LEFT;
+                    LED2_Red();
+                // }
+            }
+            else {                       //  big left
+                // if (current_servo_position == SHARP_RIGHT){
+                //     servo_position = SLIGHT_RIGHT;
+                //     LED2_Cyan();
+                // }
+                // else {
+                    servo_position = SHARP_RIGHT;
+                    LED2_Blue();
+                // }
+            }
         }
     }
-    else if(left_line_index > right_line_index){
-        if(left_amt > right_amt){   //  big right 
-            servo_position = SHARP_RIGHT;
-            LED2_Red();
-        }
-        else if (right_amt > left_amt){ //  big left
-            servo_position = SHARP_LEFT;
-            LED2_Blue();
-        }
-    }
-
-    
-    
-    
-    
-//    if (left_line_index < CENTER_LEFT){
-//        if (CENTER_RIGHT < right_line_index){
-//            servo_position = CENTER_POSITION;
-//            LED2_Green();
-//        }
-//        else if ((RIGHT_ZONE1 <= right_line_index) && (right_line_index <= CENTER_RIGHT)){
-//            servo_position = SLIGHT_LEFT;
-//            LED2_Cyan();
-//        }
-//        else if (left_line_index < right_line_index){
-//            if ((-1*min_slope) < max_slope){
-//                servo_position = SLIGHT_RIGHT;
-//                LED2_Magenta();
-//            }
-//            else {
-//                servo_position = SHARP_LEFT;
-//                LED2_Blue();
-//            }
-//        }
-//    }
-//    else if ((CENTER_LEFT <= left_line_index) && (left_line_index <= LEFT_ZONE1)){
-//        servo_position = SLIGHT_RIGHT;
-//        LED2_Magenta();
-//    }
-//    else if (right_line_index < left_line_index){
-//        if (max_slope < (-1*min_slope)){
-//            servo_position = SLIGHT_LEFT;
-//            LED2_Cyan();
-//        }
-//        else {
-//            servo_position = SHARP_RIGHT;
-//            LED2_Red();
-//        }
-//    }
-//    else {
-//        servo_position = SHARP_LEFT;
-//        LED2_Blue();
-//    }
 
     TIMER_A2_PWM_DutyCycle(servo_position, 1);
     return servo_position;
@@ -243,93 +201,35 @@ void initDriving(void){
 }
 
 void adjustDriving(double servo_position){
-
-    // if servo position is within .05 of center, keep driving at same speed
-    double right_limit = CENTER_POSITION + .0025;
-    double left_limit = CENTER_POSITION - .0025;
-
     if (running){
-
-        if (servo_position < CENTER_POSITION){
-            TIMER_A0_PWM_DutyCycle(((5.0*SPEED)/6.0)/100.0, LEFT_MOTOR);
-            TIMER_A0_PWM_DutyCycle((2.0+SPEED)/100.0, RIGHT_MOTOR);
+        if (servo_position == SHARP_LEFT){
+            TIMER_A0_PWM_DutyCycle((SPEED-4.0)/100.0, LEFT_MOTOR);
+            TIMER_A0_PWM_DutyCycle((4.0+SPEED)/100.0, RIGHT_MOTOR);
 
         }
-        else if ( servo_position > CENTER_POSITION ) {
-            TIMER_A0_PWM_DutyCycle((2.0+SPEED)/100.0, LEFT_MOTOR);
-            TIMER_A0_PWM_DutyCycle(((5.0*SPEED)/6.0)/100.0, RIGHT_MOTOR);
+        else if ( servo_position == SHARP_RIGHT ) {
+            TIMER_A0_PWM_DutyCycle((4.0+SPEED)/100.0, LEFT_MOTOR);
+            TIMER_A0_PWM_DutyCycle((SPEED-4.0)/100.0, RIGHT_MOTOR);
 
         }
         else{
-            TIMER_A0_PWM_DutyCycle(SPEED/100.0, LEFT_MOTOR);
-            TIMER_A0_PWM_DutyCycle(SPEED/100.0, RIGHT_MOTOR);
+            TIMER_A0_PWM_DutyCycle(20.0/100.0, LEFT_MOTOR);
+            TIMER_A0_PWM_DutyCycle(20.0/100.0, RIGHT_MOTOR);
         }
-
     }
     else {
         TIMER_A0_PWM_DutyCycle(0.0, LEFT_MOTOR);
         TIMER_A0_PWM_DutyCycle(0.0, RIGHT_MOTOR);
     }
-
-    // if(running){
-    //     if ((servo_position <= right_limit) || (servo_position >= left_limit)){
-    //         //  motor 1 left => P2.4 & P2.5
-    //         TIMER_A0_PWM_DutyCycle(duty_cycle/100.0, LEFT_MOTOR);  //  motor 1 left
-
-    //         //  motor 2 right => P2.6 & P2.7
-    //         TIMER_A0_PWM_DutyCycle(duty_cycle/100.0, RIGHT_MOTOR);  //  motor 2 right
-    //     }
-    //         // if servo position is left (less than center)
-    //         // trying to turn left, slow down left wheel
-    //     else if (servo_position < CENTER_POSITION){
-    //         // Set speed of right wheel
-    //         TIMER_A0_PWM_DutyCycle(duty_cycle/100.0, RIGHT_MOTOR);  //  motor 2 right
-
-    //         // if steering is more than half the distance between center and left
-    //         // cut speed of left by duty_cycle/4
-    //         if (servo_position < CENTER_POSITION - half_turn){
-    //             TIMER_A0_PWM_DutyCycle(QUARTER_DUTY_CYCLE(duty_cycle), LEFT_MOTOR);  //  motor 1 left
-    //         }
-
-    //             // else cut speed of left by duty_cycle/2
-    //         else{
-    //             TIMER_A0_PWM_DutyCycle(HALF_DUTY_CYCLE(duty_cycle), LEFT_MOTOR);  //  motor 1 left
-    //         }
-    //     }
-
-    //         // if servo position is right (more than center)
-    //         // trying to turn right, slow down right wheel
-    //     else if (servo_position > CENTER_POSITION){
-    //         // Set speed of left wheel
-    //         TIMER_A0_PWM_DutyCycle(duty_cycle/100.0, 1);  //  motor 1 left
-
-    //         // if steering is more than half the distance between center and right
-    //         // cut speed of right by duty_cycle/4
-    //         if (servo_position > CENTER_POSITION + half_turn){
-    //             TIMER_A0_PWM_DutyCycle(QUARTER_DUTY_CYCLE(duty_cycle), RIGHT_MOTOR);  //  motor 2 right
-    //         }
-
-    //             // else cut speed of right by duty_cycle/2
-    //         else{
-    //             TIMER_A0_PWM_DutyCycle(HALF_DUTY_CYCLE(duty_cycle), RIGHT_MOTOR);  //  motor 2 right
-    //         }
-    //     }
-    // }
-    // else{
-    //     // set all motors to zero (stopped)
-    //     TIMER_A0_PWM_DutyCycle(0.0, 1);  //  motor 1 left
-
-    //     TIMER_A0_PWM_DutyCycle(0.0, 3);  //  motor 2 right
-    // }
 }
 
-uint16_t parseCameraData(uint16_t* raw_camera_data, uint16_t* smoothed_line, uint16_t* avg_line_data){
-    uint16_t max;
+max_and_mins_t parseCameraData(uint16_t* raw_camera_data, uint16_t* smoothed_line, uint16_t* avg_line_data){
+    max_and_mins_t line_stats;
     
     if (g_sendData == TRUE){
         LED1_On();
 
-        max = MovingAverage(raw_camera_data, smoothed_line);
+        line_stats = MovingAverage(raw_camera_data, smoothed_line);
         slope_finder(smoothed_line, slope_results);
 
         // render camera data onto the OLED display
@@ -344,7 +244,7 @@ uint16_t parseCameraData(uint16_t* raw_camera_data, uint16_t* smoothed_line, uin
         g_sendData = FALSE;
     }
 
-    return max;
+    return line_stats;
 }
 
 int CheckForTrackLoss(uint16_t camera_max, int counter){
@@ -394,10 +294,10 @@ void init(void){
 
 
 int main(void){
-    int direction = 0;  // 1 = high left avg (turn left) 0 = high right avg (turn right)
-    uint16_t camera_line_max = 0;
+    max_and_mins_t line_statistics;
     int track_loss_counter = 0;
     double servo_position = 0.075;
+    uint16_t camera_line_max;
 
     #ifdef USE_UART
         char uart_buffer [20];
@@ -424,11 +324,11 @@ int main(void){
     // TODO: Only run loop for a short period of time as a safety check at first
     for(;;){
 
-        camera_line_max = parseCameraData(line, smoothed_line, steering_array);
-        direction = determine_direction(steering_array);
+        line_statistics = parseCameraData(line, smoothed_line, steering_array);
+        camera_line_max = line_statistics.max;
 
         // Turn the servo motor
-        servo_position = adjustSteering(direction);
+        servo_position = adjustSteering(line_statistics, servo_position);
 
         #ifdef USE_UART
             sprintf(uart_buffer, "servo: %g;  left line idx:  %d;  right line idx:  %d;\n\r", servo_position, slope_results[1], slope_results[0]);
@@ -448,7 +348,7 @@ int main(void){
         camera_line_max = 0;
         
 		// Do a small delay
-		msdelay(100);
+		msdelay(10);
     }
 
 

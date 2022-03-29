@@ -86,10 +86,12 @@ void slope_finder(uint16_t* line_data, int* result_array){
  * @param smoothed_line smoothed camera data after averaging
  * @return uint16_t the maximum value of the smoothed camera data
  */
-uint16_t MovingAverage(uint16_t* line_data, uint16_t* smoothed_line){
+max_and_mins_t MovingAverage(uint16_t* line_data, uint16_t* smoothed_line){
+    max_and_mins_t retVals;
     int i;
     uint16_t five_p_avg;
     uint16_t max = 0;
+    uint16_t min = 16383;
 
     for(i = 2; i < 126; i++){
         five_p_avg = line_data[i+2]/5 + line_data[i+1]/5 + line_data[i]/5 + line_data[i-1]/5 + line_data[i-2]/5;
@@ -97,14 +99,19 @@ uint16_t MovingAverage(uint16_t* line_data, uint16_t* smoothed_line){
 
         if (max < smoothed_line[i])
             max = smoothed_line[i];
+        else if (smoothed_line[i] < min)
+            min = smoothed_line[i];
     }
 
     smoothed_line[0] = line_data[2];
     smoothed_line[1] = line_data[2];
     smoothed_line[126] = line_data[125];
     smoothed_line[127] = line_data[125];
+    
+    retVals.max = max;
+    retVals.min = min;
 
-    return max;
+    return retVals;
 }
 
 /**
