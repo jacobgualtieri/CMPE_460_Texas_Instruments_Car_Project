@@ -4,14 +4,18 @@
 #define _CAMERA_H_
 #endif
 
-typedef struct max_and_mins {
+typedef struct line_stats {
     uint16_t max;
     uint16_t min;
-} max_and_mins_t;
+    int right_slope_index;
+    int left_slope_index;
+    int right_slope_amount;
+    int left_slope_amount;
+} line_stats_t;
 
 void INIT_Camera(void);
 void readCameraData(uint16_t* raw_camera_data);
-max_and_mins_t MovingAverage(uint16_t* line_data, uint16_t* smoothed_line);
-void split_average(uint16_t* line_data, uint16_t* avg_line_data);
-void slope_finder(uint16_t* line_data, int* result_array);
+void MovingAverage(uint16_t* line_data, uint16_t* smoothed_line, line_stats_t* stat_collection);
+void slope_finder(uint16_t* line_data, line_stats_t* stat_collection);
 int determine_direction(uint16_t* avg_line_data);
+void split_average(uint16_t* line_data, uint16_t* avg_line_data);

@@ -21,14 +21,14 @@
 #include "TimerA.h"
 
 //#define USE_OLED
-//#define USE_UART
+#define USE_UART
 //#define TEST_OLED
 
 /* Servo Positions */
 #define CENTER_POSITION   0.075
 #define LEFT_POSITION     0.05
-#define SHARP_LEFT        0.051   //  .005 from slight left
-#define SLIGHT_LEFT       0.062   //  .01 from center
+#define SHARP_LEFT        0.05   //  .005 from slight left
+#define SLIGHT_LEFT       0.059   //  .01 from center
 #define RIGHT_POSITION    0.1
 #define SHARP_RIGHT       0.091   //  .005 from slight right
 #define SLIGHT_RIGHT      0.085   //  .01 from center
@@ -37,13 +37,13 @@
 /* Directional Thresholds */
 #define CENTER_LEFT_IDX  58
 #define CENTER_RIGHT_IDX 76
-#define RIGHT_IDX_OFFSET 12
+#define RIGHT_IDX_OFFSET 15
 
 /* Midpoint Calculation */
 #define MIDPOINT(L_IDX,R_IDX) (((L_IDX) + (R_IDX))/2)
 
 /* Speed Settings */
-#define STRAIGHTS_SPEED 20.0
+#define STRAIGHTS_SPEED 23.5
 #define SPEED           23.5  // start out testing very slow
 
 /* DC Motor Settings */
@@ -54,7 +54,7 @@
 #define RIGHT_MOTOR 4
 
 /* Track Loss Limit */
-#define TRACK_LOSS_LIMIT 3
+#define TRACK_LOSS_LIMIT 5
 
 // line stores the current array of camera data
 extern unsigned char OLED_clr_data[1024];
@@ -62,8 +62,7 @@ extern unsigned char OLED_TEXT_ARR[1024];
 extern unsigned char OLED_GRAPH_ARR[1024];
 uint16_t line[128];             // raw
 uint16_t smoothed_line[128];    // 5-point average of raw data
-uint16_t steering_array[128];         
-int slope_results[4];
+uint16_t steering_array[128];
 BOOLEAN g_sendData;
 BOOLEAN running = TRUE;
 
@@ -103,16 +102,16 @@ sharp right:
 
 */
 
-double adjustSteering(max_and_mins_t line_stats, double current_servo_position){
+double adjustSteering(line_stats_t line_stats, double current_servo_position){
     double servo_position = current_servo_position;
     uint16_t left_amt, right_amt;
     int left_line_index, right_line_index;
     int track_midpoint_idx = 64;
 
-    right_line_index = slope_results[0] - RIGHT_IDX_OFFSET;
-    left_line_index = slope_results[1];
-    right_amt = -1 * slope_results[2];
-    left_amt = slope_results[3];
+    right_line_index = line_stats.right_slope_index - RIGHT_IDX_OFFSET;
+    left_line_index = line_stats.left_slope_index;
+    right_amt = -1 * line_stats.right_slope_amount;
+    left_amt = line_stats.left_slope_amount;
     
     if (6800 < line_stats.min){     // If the lowest value detected is fairly high, we can go straight ahead
         servo_position = CENTER_POSITION;
@@ -192,8 +191,12 @@ void adjustDriving(double servo_position){
     if (running){
         if (servo_position == SHARP_LEFT){
             TIMER_A0_PWM_DutyCycle((SPEED-4.0)/100.0, LEFT_MOTOR);
-            TIMER_A0_PWM_DutyCycle((7.0+SPEED)/100.0, RIGHT_MOTOR);
+            TIMER_A0_PWM_DutyCycle((9.0+SPEED)/100.0, RIGHT_MOTOR);
 
+        }
+        else if ( servo_position == SLIGHT_LEFT ){
+            TIMER_A0_PWM_DutyCycle((SPEED-2.0)/100.0, LEFT_MOTOR);
+            TIMER_A0_PWM_DutyCycle((3.0+SPEED)/100.0, RIGHT_MOTOR);
         }
         else if ( servo_position == SHARP_RIGHT ) {
             TIMER_A0_PWM_DutyCycle((4.0+SPEED)/100.0, LEFT_MOTOR);
@@ -211,14 +214,14 @@ void adjustDriving(double servo_position){
     }
 }
 
-max_and_mins_t parseCameraData(uint16_t* raw_camera_data, uint16_t* smoothed_line, uint16_t* avg_line_data){
-    max_and_mins_t line_stats;
+line_stats_t parseCameraData(uint16_t* raw_camera_data, uint16_t* smoothed_line, uint16_t* avg_line_data){
+    line_stats_t line_stats;
     
     if (g_sendData == TRUE){
         LED1_On();
 
-        line_stats = MovingAverage(raw_camera_data, smoothed_line);
-        slope_finder(smoothed_line, slope_results);
+        MovingAverage(raw_camera_data, smoothed_line, &line_stats);
+        slope_finder(smoothed_line, &line_stats);
 
         // render camera data onto the OLED display
         #ifdef USE_OLED
@@ -277,7 +280,7 @@ void init(void){
 
 
 int main(void){
-    max_and_mins_t line_statistics;
+    line_stats_t line_statistics;
     int track_loss_counter = 0;
     double servo_position = 0.075;
     uint16_t camera_line_max;
@@ -314,7 +317,7 @@ int main(void){
         servo_position = adjustSteering(line_statistics, servo_position);
 
         #ifdef USE_UART
-            sprintf(uart_buffer, "servo: %g;  left line idx:  %d;  right line idx:  %d;\n\r", servo_position, slope_results[1], slope_results[0]);
+            sprintf(uart_buffer, "servo: %g;  left line idx:  %d;  right line idx:  %d;\n\r", servo_position, line_statistics.left_slope_index, line_statistics.right_slope_index);
             uart2_put(uart_buffer);
             uart0_put(uart_buffer);
         #endif

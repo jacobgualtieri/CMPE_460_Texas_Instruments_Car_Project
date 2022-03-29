@@ -42,7 +42,8 @@ void readCameraData(uint16_t* raw_camera_data){
     }
 }
 
-void slope_finder(uint16_t* line_data, int* result_array){
+void slope_finder(uint16_t* line_data, line_stats_t* stat_collection){
+
     int j = 0;
     int dy = 0;
     int max_dy = 0;
@@ -71,11 +72,11 @@ void slope_finder(uint16_t* line_data, int* result_array){
         }
     }
 
-    // save results to global array
-    result_array[0] = min_idx;
-    result_array[1] = max_idx;
-    result_array[2] = min_dy;
-    result_array[3] = max_dy;
+    // save results to Line_stats struct
+    stat_collection->right_slope_index = min_idx;
+    stat_collection->right_slope_amount = min_dy;
+    stat_collection->left_slope_index = max_idx;
+    stat_collection->left_slope_amount = max_dy;
 }
 
 /**
@@ -86,8 +87,7 @@ void slope_finder(uint16_t* line_data, int* result_array){
  * @param smoothed_line smoothed camera data after averaging
  * @return uint16_t the maximum value of the smoothed camera data
  */
-max_and_mins_t MovingAverage(uint16_t* line_data, uint16_t* smoothed_line){
-    max_and_mins_t retVals;
+void MovingAverage(uint16_t* line_data, uint16_t* smoothed_line, line_stats_t* stat_collection){
     int i;
     uint16_t five_p_avg;
     uint16_t max = 0;
@@ -108,10 +108,8 @@ max_and_mins_t MovingAverage(uint16_t* line_data, uint16_t* smoothed_line){
     smoothed_line[126] = line_data[125];
     smoothed_line[127] = line_data[125];
     
-    retVals.max = max;
-    retVals.min = min;
-
-    return retVals;
+    stat_collection->max = max;
+    stat_collection->min = min;
 }
 
 /**
