@@ -27,23 +27,25 @@
 
 /* Servo Positions */
 #define CENTER_POSITION   0.075
-#define SHARP_LEFT        0.05  //  .005 from slight left
-#define SLIGHT_LEFT       0.059 //  .01 from center
-#define SHARP_RIGHT       0.091 //  .005 from slight right
-#define SLIGHT_RIGHT      0.085 //  .01 from center
+#define LEFT_POSITION     0.05
+#define SHARP_LEFT        0.053   //  .005 from slight left
+#define SLIGHT_LEFT       0.059   //  .01 from center
+#define RIGHT_POSITION    0.1
+#define SHARP_RIGHT       0.097   //  .005 from slight right
+#define SLIGHT_RIGHT      0.085   //  .01 from center
 #define ADJUSTMENT_THRESH 7800
 
 /* Directional Thresholds */
-#define CENTER_LEFT_IDX  58
-#define CENTER_RIGHT_IDX 76
+#define CENTER_LEFT_IDX  49
+#define CENTER_RIGHT_IDX 79
 #define RIGHT_IDX_OFFSET 15
 
 /* Midpoint Calculation */
 #define MIDPOINT(L_IDX,R_IDX) (((L_IDX) + (R_IDX))/2)
 
 /* Speed Settings */
-#define STRAIGHTS_SPEED 23.5
-#define SPEED           23.5
+#define STRAIGHTS_SPEED 35.0
+#define SPEED           25.0  // start out testing very slow
 
 /* DC Motor Settings */
 // 3 and 4 motor goes fwd
@@ -52,7 +54,7 @@
 #define RIGHT_MOTOR 4
 
 /* Track Loss Limit */
-#define TRACK_LOSS_LIMIT 5  // Stop limit if off track
+#define TRACK_LOSS_LIMIT 10
 
 // line stores the current array of camera data
 extern unsigned char OLED_clr_data[1024];
