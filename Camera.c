@@ -53,8 +53,8 @@ void readCameraData(uint16_t* raw_camera_data){
  * values of the derivative (slope) of the input data
  */
 void slope_finder(uint16_t* line_data, line_stats_t* stat_collection){
-    int j = 0;      // counter
-    int dy = 0;     // delta y, or slope between two points
+    int j;      // counter
+    int dy;     // delta y, or slope between two points
     int max_dy = 0;     // max slope (largest positive slope value)
     int max_idx = 0;    // index of max slope
     int min_dy = 0;     // min slope (smallest negative slope value)
@@ -149,8 +149,8 @@ void split_average(uint16_t* line_data, uint16_t* avg_line_data){
     int j;
     unsigned long accum_left = 0;
     unsigned long accum_right = 0;
-    uint16_t left_avg = 0;
-    uint16_t right_avg = 0;
+    uint16_t left_avg;
+    uint16_t right_avg;
 
     for (j = 0; j < 64; j++){
         accum_left += line_data[j];
@@ -177,7 +177,7 @@ void split_average(uint16_t* line_data, uint16_t* avg_line_data){
  * If retVal = 1, turn to the right
  */
 int determine_direction(uint16_t* avg_line_data){
-    int retVal = 0;
+    int retVal;
     int margin = 2000;
     
     uint16_t left_amt, right_amt;
