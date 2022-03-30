@@ -19,6 +19,7 @@
 #include "ControlPins.h"
 #include "Camera.h"
 #include "TimerA.h"
+#include "Steering_PID.h"
 
 /* Testing and debugging */
 //#define USE_OLED
@@ -38,9 +39,6 @@
 #define CENTER_RIGHT_IDX 76
 #define RIGHT_IDX_OFFSET 15
 
-/* Midpoint Calculation */
-#define MIDPOINT(L_IDX,R_IDX) (((L_IDX) + (R_IDX))/2)
-
 /* Speed Settings */
 #define STRAIGHTS_SPEED 23.5
 #define SPEED           23.5
@@ -58,6 +56,9 @@
 extern unsigned char OLED_clr_data[1024];
 extern unsigned char OLED_TEXT_ARR[1024];
 extern unsigned char OLED_GRAPH_ARR[1024];
+
+/* Servo Position History Array */
+double MIDPOINT_HISTORY[HISTORY_LENGTH];
 
 uint16_t line[128];             // raw camera data
 uint16_t smoothed_line[128];    // 5-point average of raw data
