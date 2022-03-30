@@ -10,7 +10,7 @@
 extern BOOLEAN g_sendData;
 
 /**
- * @brief camera initialization function
+ * @brief Initializes camera signals
  */
 void INIT_Camera(void){
     g_sendData = FALSE;
@@ -44,20 +44,27 @@ void readCameraData(uint16_t* raw_camera_data){
     }
 }
 
+/**
+ * @brief finds the indexes of the left and right lines of the "track"
+ * from the camera data
+ *
+ * @param line_data smoothed camera data
+ * @param stat_collection contains values and indexes of the max and min
+ * values of the derivative (slope) of the input data
+ */
 void slope_finder(uint16_t* line_data, line_stats_t* stat_collection){
-
-    int j = 0;
-    int dy = 0;
-    int max_dy = 0;
-    int max_idx = 0;
-    int min_dy = 0;
-    int min_idx = 0;
+    int j = 0;      // counter
+    int dy = 0;     // delta y, or slope between two points
+    int max_dy = 0;     // max slope (largest positive slope value)
+    int max_idx = 0;    // index of max slope
+    int min_dy = 0;     // min slope (smallest negative slope value)
+    int min_idx = 0;    // index of min slope
 
     for (j = 0; j < 127; j++){
 
-        dy = line_data[j+1] - line_data[j];
+        dy = line_data[j+1] - line_data[j]; // calculate slope = ( [j+1] - [j] ) / 1
 
-        if (max_dy < dy){
+        if (max_dy < dy){   // update max values
             max_dy = dy;
             max_idx = j;
         } else {
@@ -65,7 +72,7 @@ void slope_finder(uint16_t* line_data, line_stats_t* stat_collection){
             max_idx = max_idx;
         }
 
-        if (dy < min_dy){
+        if (dy < min_dy){   // update min values
             min_dy = dy;
             min_idx = j;
         } else {
@@ -74,7 +81,7 @@ void slope_finder(uint16_t* line_data, line_stats_t* stat_collection){
         }
     }
 
-    // save results to Line_stats struct
+    // save results to line_stats struct
     stat_collection->right_slope_index = min_idx;
     stat_collection->right_slope_amount = min_dy;
     stat_collection->left_slope_index = max_idx;
@@ -87,11 +94,12 @@ void slope_finder(uint16_t* line_data, line_stats_t* stat_collection){
  * 
  * @param line_data raw camera data
  * @param smoothed_line smoothed camera data after averaging
- * @return uint16_t the maximum value of the smoothed camera data
+ * @param stat_collection contains values and indexes of the max and min
+ * values of the raw camera data
  */
 void MovingAverage(uint16_t* line_data, uint16_t* smoothed_line, line_stats_t* stat_collection){
     int i;
-    uint16_t five_p_avg;
+    uint16_t five_p_avg;    // 5 point average value
     uint16_t max = 0;
     uint16_t min = 16383;
 
@@ -109,18 +117,20 @@ void MovingAverage(uint16_t* line_data, uint16_t* smoothed_line, line_stats_t* s
     smoothed_line[1] = line_data[2];
     smoothed_line[126] = line_data[125];
     smoothed_line[127] = line_data[125];
-    
+
+    // TODO: Why do we do this here? Why do we not keep track of the indexes too?
     stat_collection->max = max;
     stat_collection->min = min;
 }
 
 /**
- * @brief splits the camera data in half and calculates the average of each half
+ * @brief Splits the camera data in half and calculates the average of each half
  *
- * @param line_data the camera data
- * @param avg_line_data the averaged halves of camera data
- * avg_line_data is a 128 point array so it can be easily rendered on the OLED screen
- * Loop unrolling may be helpful if we ever need this to run faster
+ * @param line_data raw camera data
+ * @param avg_line_data the averaged halves of camera data. It is a 128 point array
+ * so it can be easily rendered on the OLED screen. Loop unrolling may be helpful
+ * if we ever need this to run faster
+ *
  * - Added 1 degree of loop unrolling
  */
 void split_average(uint16_t* line_data, uint16_t* avg_line_data){
@@ -145,10 +155,11 @@ void split_average(uint16_t* line_data, uint16_t* avg_line_data){
 }
 
 /**
- * @brief determines which half of the camera data has a greater average
+ * @brief Determines which half of the camera data has a greater average
  *
  * @param avg_line_data the averaged halves of camera data
- * @return int
+ * @return int retVal
+ *
  * If retVal = -1, turn to the left
  * If retVal = 0, go straight (don't change direction)
  * If retVal = 1, turn to the right
@@ -159,16 +170,16 @@ int determine_direction(uint16_t* avg_line_data){
     
     uint16_t left_amt, right_amt;
     
-    left_amt = avg_line_data[0];
-    right_amt = avg_line_data[64];
+    left_amt = avg_line_data[0];    // left average
+    right_amt = avg_line_data[64];  // right average
 
-    if (left_amt > (right_amt + margin)){         // turn left
+    if (left_amt > (right_amt + margin)){   // turn left
         retVal = 1;
     }
     else if ((left_amt + margin) < right_amt){  // turn right
         retVal = -1;
     }
-    else {          // go straight
+    else {  // go straight
         retVal = 0;
     }
 
