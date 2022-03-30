@@ -1,11 +1,10 @@
 #include <stdint.h>
-
 #ifndef _CAMERA_H_
 #define _CAMERA_H_
 #endif
 
 typedef struct line_stats {
-    uint16_t max;
+    uint16_t max;   // TODO: these aren't used
     uint16_t min;
     int right_slope_index;
     int left_slope_index;
