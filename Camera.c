@@ -20,6 +20,8 @@ void INIT_Camera(void){
 }
 
 void readCameraData(uint16_t* raw_camera_data){
+    // TODO: Re-evaluate the purpose of this function
+    //  I don't think we even use this anymore
     char str[100];
     int i;
     if (g_sendData == TRUE){
