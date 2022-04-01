@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include "Steering_PID.h"
 
-extern double MIDPOINT_HISTORY[HISTORY_LENGTH];
+extern double ERROR_HISTORY[HISTORY_LENGTH];
 
 double Integrate(double* previous_values){
     int i = 0;
@@ -36,7 +36,7 @@ double SteeringPID(int left_edge, int right_edge, double k_p, double k_i){
     proportional_gain = k_p * (double)(64 - track_midpoint);
 
     // Determine integral gain
-    integral_gain = k_i * Integrate(MIDPOINT_HISTORY);
+    integral_gain = k_i * Integrate(ERROR_HISTORY);
 
     // Finally determine derivative gain
     derivative_gain = 0.0;

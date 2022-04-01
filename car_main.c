@@ -58,7 +58,7 @@ extern unsigned char OLED_TEXT_ARR[1024];
 extern unsigned char OLED_GRAPH_ARR[1024];
 
 /* Servo Position History Array */
-double MIDPOINT_HISTORY[HISTORY_LENGTH];
+double ERROR_HISTORY[HISTORY_LENGTH];
 
 uint16_t line[128];             // raw camera data
 uint16_t smoothed_line[128];    // 5-point average of raw data
