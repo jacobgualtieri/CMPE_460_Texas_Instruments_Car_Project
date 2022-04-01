@@ -81,6 +81,10 @@ void msdelay(int delay){
  * @brief Initialize servo motor for steering
  */
 void initSteering(void){
+    // Initialize history array for PID steering to zero
+    int i;
+    for (i = 0; i < HISTORY_LENGTH; i++){ ERROR_HISTORY[i] = 0.0; }
+
     // Setup steering to be centered
     // PWM -> f = 1kHz, T = 20ms, center = 1.5ms
     TIMER_A2_PWM_Init(CalcPeriodFromFrequency(1000.0), CENTER_POSITION, 1);
