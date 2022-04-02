@@ -293,10 +293,19 @@ void init(void){
     #endif
 }
 
+void PrintPIDValues(pid_values steer, pid_values drive){
+    PrintSteeringValues(steer);
+    PrintDrivingValues(drive);
+}
+
 int main(void){
     line_stats_t line_statistics;   // stats of camera data
     int track_loss_counter = 0;     // off track counter
     double servo_position = 0.075;  // current position of servo
+
+    // TODO: here are the PID variables
+    pid_values steering_pid = {0.1, 0.2, 0.3};
+    pid_values driving_pid = {0.1, 0.2, 0.3};
 
     #ifdef USE_UART
         char uart_buffer [20];
@@ -321,6 +330,39 @@ int main(void){
     running = TRUE;
 
     for(;;){
+
+        /* Check if a message was sent from UART2 */
+        // TODO: Add logic here
+        // message = getfromUART2();
+        // updatePID(message);
+
+
+        // TODO: add function to split the string into tokens,
+        //  get the number of tokens
+        //  if the num == 4 then read the first token and call the steer or
+        //  drive update PID values funciton
+        //  if the num == 1 then print out the help command or print all PID values
+
+
+
+        // if the message sent from uart2 was "steer kp ki kd"
+        // Update current PID steering variables
+        PrintSteeringValues(steering_pid);
+
+
+        // else if "drive kp ki kd"
+        // Update current PID driving variables
+        // print out new PID values
+        PrintDrivingValues(driving_pid);
+
+        // else if "help"
+        // print "steer kp ki kd" OR "drive kp ki kd" OR "help" OR "values"
+
+        // else if "values"
+        // print out current variable values for steering and driving
+        // "steering values: Kp = 1, Ki = 2, Kd = 3"
+        // "driving values: Kp = 1, Ki = 2, Kd = 3"
+
 
         /* Read camera data */
         line_statistics = parseCameraData(line, smoothed_line);

@@ -1,9 +1,25 @@
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdio.h>
 #include "Steering_PID.h"
 #include "leds.h"
+#include "uart.h"
 
 extern double ERROR_HISTORY[HISTORY_LENGTH];
+
+void PrintSteeringValues(pid_values pid){
+    char string [100];
+    sprintf(string, "Steering values: Kp = %.3f, Ki = %.3f, Kd = %.3f\n\r", pid.kp, pid.ki, pid.kd);
+    uart2_put(string);
+    uart0_put(string);
+}
+
+void PrintDrivingValues(pid_values pid){
+    char string [100];
+    sprintf(string, "Driving values: Kp = %.3f, Ki = %.3f, Kd = %.3f\n\r", pid.kp, pid.ki, pid.kd);
+    uart2_put(string);
+    uart0_put(string);
+}
 
 /**
  * @brief Integrates via trapezoid rule
