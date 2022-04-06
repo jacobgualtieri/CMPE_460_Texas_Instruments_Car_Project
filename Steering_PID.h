@@ -23,5 +23,6 @@ typedef struct pid_values {
 
 void PrintSteeringValues(pid_values_t steering_values);
 void PrintDrivingValues(pid_values_t driving_values);
-double SteeringPID(int left_edge, int right_edge, double k_p, double k_i);
 double Integrate(double* previous_values);
+double GenericPID(pid_values_t pid_params, double target, double setpoint, double error_terms [HISTORY_LENGTH]);
+double SteeringPID(int left_edge, int right_edge, pid_values_t pid_params);

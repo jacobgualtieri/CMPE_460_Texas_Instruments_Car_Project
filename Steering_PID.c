@@ -5,7 +5,8 @@
 #include "leds.h"
 #include "uart.h"
 
-extern double ERROR_HISTORY[HISTORY_LENGTH];
+extern double STEERING_ERROR_HISTORY[HISTORY_LENGTH];
+extern double DRIVING_ERROR_HISTORY[HISTORY_LENGTH];
 
 void PrintSteeringValues(pid_values_t pid){
     char string [100];
@@ -25,7 +26,7 @@ void PrintDrivingValues(pid_values_t pid){
  * @brief Integrates via trapezoid rule
  * 
  */
-double Integrate(double* previous_values){
+double Integrate(double previous_values [HISTORY_LENGTH]){
     int i = 0;
     double accum = 0.0;
 
@@ -37,7 +38,7 @@ double Integrate(double* previous_values){
     return accum;
 }
 
-double GenericPID(pid_values_t pid_params, double target, double setpoint){
+double GenericPID(pid_values_t pid_params, double target, double setpoint, double error_terms [HISTORY_LENGTH]){
     double error = 0.0;
     double proportional_gain = 0.0;
     double integral_gain = 0.0;
@@ -48,14 +49,14 @@ double GenericPID(pid_values_t pid_params, double target, double setpoint){
     error = target - setpoint;
 
     // Push error term into history array
-    ERROR_HISTORY[1] = ERROR_HISTORY[0];
-    ERROR_HISTORY[0] = error;
+    error_terms[1] = error_terms[0];
+    error_terms[0] = error;
 
     // First determine proportional gain
     proportional_gain = pid_params.kp * error;
 
     // Determine integral gain
-    integral_gain = pid_params.ki * Integrate(ERROR_HISTORY);
+    integral_gain = pid_params.ki * Integrate(error_terms);
 
     // Finally determine derivative gain
     derivative_gain = 0.0;
@@ -85,7 +86,7 @@ double SteeringPID(int left_edge, int right_edge, pid_values_t pid_params){
     // Determine error
     error = (double)(64 - track_midpoint);
 
-    new_servo_position = GenericPID(pid_params, 64.0, (double)track_midpoint);
+    new_servo_position = GenericPID(pid_params, 64.0, (double)track_midpoint, STEERING_ERROR_HISTORY);
 
     // Prevent control loop from exceeding servo range
     if (new_servo_position < FULL_LEFT){

@@ -58,7 +58,8 @@ extern unsigned char OLED_TEXT_ARR[1024];
 extern unsigned char OLED_GRAPH_ARR[1024];
 
 /* Servo Position History Array */
-double ERROR_HISTORY[HISTORY_LENGTH];
+double STEERING_ERROR_HISTORY[HISTORY_LENGTH];
+double DRIVING_ERROR_HISTORY[HISTORY_LENGTH];
 
 uint16_t line[128];             // raw camera data
 uint16_t smoothed_line[128];    // 5-point average of raw data
@@ -83,7 +84,7 @@ void msdelay(int delay){
 void initSteering(void){
     // Initialize history array for PID steering to zero
     int i;
-    for (i = 0; i < HISTORY_LENGTH; i++){ ERROR_HISTORY[i] = 0.0; }
+    for (i = 0; i < HISTORY_LENGTH; i++){ STEERING_ERROR_HISTORY[i] = 0.0; }
 
     // Setup steering to be centered
     // PWM -> f = 1kHz, T = 20ms, center = 1.5ms
@@ -163,6 +164,10 @@ double adjustSteering(line_stats_t line_stats, double current_servo_position){
 void initDriving(void){
     uint16_t period;
     double freq = 10000.0;  //  Frequency = 10 kHz
+    int i;
+
+    // Initialize history array for PID driving to zero
+    for (i = 0; i < HISTORY_LENGTH; i++){ DRIVING_ERROR_HISTORY[i] = 0.0; }
 
     //  EN_A and EN_B are tied to H-Bridge enable pins on the motor shield
     //  M1EN -> P3.6    M2EN -> P3.7
