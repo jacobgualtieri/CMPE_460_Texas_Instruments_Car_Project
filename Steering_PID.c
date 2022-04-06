@@ -7,14 +7,14 @@
 
 extern double ERROR_HISTORY[HISTORY_LENGTH];
 
-void PrintSteeringValues(pid_values pid){
+void PrintSteeringValues(pid_values_t pid){
     char string [100];
     sprintf(string, "Steering values: Kp = %.3f, Ki = %.3f, Kd = %.3f\n\r", pid.kp, pid.ki, pid.kd);
     uart2_put(string);
     uart0_put(string);
 }
 
-void PrintDrivingValues(pid_values pid){
+void PrintDrivingValues(pid_values_t pid){
     char string [100];
     sprintf(string, "Driving values: Kp = %.3f, Ki = %.3f, Kd = %.3f\n\r", pid.kp, pid.ki, pid.kd);
     uart2_put(string);
@@ -37,13 +37,41 @@ double Integrate(double* previous_values){
     return accum;
 }
 
+double GenericPID(pid_values_t pid_params, double target, double setpoint){
+    double error = 0.0;
+    double proportional_gain = 0.0;
+    double integral_gain = 0.0;
+    double derivative_gain = 0.0;
+    double new_setpoint = 0.0;
+
+    // Determine error
+    error = target - setpoint;
+
+    // Push error term into history array
+    ERROR_HISTORY[1] = ERROR_HISTORY[0];
+    ERROR_HISTORY[0] = error;
+
+    // First determine proportional gain
+    proportional_gain = pid_params.kp * error;
+
+    // Determine integral gain
+    integral_gain = pid_params.ki * Integrate(ERROR_HISTORY);
+
+    // Finally determine derivative gain
+    derivative_gain = 0.0;
+
+    new_setpoint = setpoint + (proportional_gain + integral_gain + derivative_gain);
+
+    return new_setpoint;
+}
+
 /**
  * From PID Notes
  * - Higher k_p values result in obtaining the desired steering angle quickly,
  *   but with excessive oscillations
  * - Start with k_p = 0.5
  */
-double SteeringPID(int left_edge, int right_edge, double k_p, double k_i){
+double SteeringPID(int left_edge, int right_edge, pid_values_t pid_params){
     int track_midpoint = 64;
     double error = 0.0;
     double proportional_gain = 0.0;
@@ -57,20 +85,7 @@ double SteeringPID(int left_edge, int right_edge, double k_p, double k_i){
     // Determine error
     error = (double)(64 - track_midpoint);
 
-    // Push error term into history array
-    ERROR_HISTORY[1] = ERROR_HISTORY[0];
-    ERROR_HISTORY[0] = error;
-
-    // First determine proportional gain
-    proportional_gain = k_p * error;
-
-    // Determine integral gain
-    integral_gain = k_i * Integrate(ERROR_HISTORY);
-
-    // Finally determine derivative gain
-    derivative_gain = 0.0;
-
-    new_servo_position = proportional_gain + integral_gain + derivative_gain;
+    new_servo_position = GenericPID(pid_params, 64.0, (double)track_midpoint);
 
     // Prevent control loop from exceeding servo range
     if (new_servo_position < FULL_LEFT){

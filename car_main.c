@@ -293,7 +293,7 @@ void init(void){
     #endif
 }
 
-void PrintPIDValues(pid_values steer, pid_values drive){
+void PrintPIDValues(pid_values_t steer, pid_values_t drive){
     PrintSteeringValues(steer);
     PrintDrivingValues(drive);
 }
@@ -304,8 +304,8 @@ int main(void){
     double servo_position = 0.075;  // current position of servo
 
     // TODO: here are the PID variables
-    pid_values steering_pid = {0.1, 0.2, 0.3};
-    pid_values driving_pid = {0.1, 0.2, 0.3};
+    pid_values_t steering_pid = {0.1, 0.2, 0.3};
+    pid_values_t driving_pid = {0.1, 0.2, 0.3};
 
     #ifdef USE_UART
         char uart_buffer [20];
