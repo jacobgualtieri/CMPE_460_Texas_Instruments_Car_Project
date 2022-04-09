@@ -14,6 +14,12 @@
 /* Midpoint Calculation */
 #define MIDPOINT(L_IDX,R_IDX) (((L_IDX) + (R_IDX))/2)
 
+#define UPDATE_PID(PID_STRUCT,NEW_KP,NEW_KI,NEW_KD){ \
+    (PID_STRUCT).kp = (NEW_KP); \
+    (PID_STRUCT).ki = (NEW_KI); \
+    (PID_STRUCT).kd = (NEW_KD); \
+}
+
 typedef struct pid_values {
     float kp;
     float ki;

@@ -69,6 +69,11 @@ uint16_t smoothed_line[128];    // 5-point average of raw data
 BOOLEAN g_sendData;             // TRUE if camera data is ready to read
 BOOLEAN running = TRUE;         // Driving control variable
 
+#ifdef USE_UART
+    char uart_buffer [20];
+    char uart_rx_buffer [UART2_RX_BUFFER_LENGTH];
+#endif
+
 /**
  * @brief Function from Lab 5, delays by a specified amount
  * of time in milliseconds
@@ -105,6 +110,45 @@ right: 95
 sharp right:
 
 */
+
+
+void parseUartCmd(pid_values_t* steering_settings_ptr, pid_values_t* driving_settings_ptr){
+
+    char user_cmd_char = 0;
+    float new_kp = 0.0;
+    float new_ki = 0.0;
+    float new_kd = 0.0;
+
+    uart2_get(uart_rx_buffer, UART2_RX_BUFFER_LENGTH);
+    sscanf(uart_rx_buffer, "%c %f %f %f", &user_cmd_char, &new_kp, &new_ki, &new_kd);
+    
+    if ((user_cmd_char == 'd') || (user_cmd_char == 'D')){
+        UPDATE_PID(*driving_settings_ptr, new_kp, new_ki, new_kd);
+        PrintDrivingValues(*driving_settings_ptr);
+    }
+    else if ((user_cmd_char == 's') || (user_cmd_char == 'S')){
+        UPDATE_PID(*steering_settings_ptr, new_kp, new_ki, new_kd);
+        PrintSteeringValues(*steering_settings_ptr);
+    }
+    else if ((user_cmd_char == 'h') || (user_cmd_char == 'H')){
+        uart0_put("'s kp ki kd' OR 'd kp ki kd' OR 'h' OR 'v'\r\n");
+        uart2_put("'s kp ki kd' OR 'd kp ki kd' OR 'h' OR 'v'\r\n");
+    }
+    else if ((user_cmd_char == 'v') || (user_cmd_char == 'V')){
+        PrintSteeringValues(*steering_settings_ptr);
+        PrintDrivingValues(*driving_settings_ptr);
+    }
+    else if ((user_cmd_char == 'g') || (user_cmd_char == 'G')){
+        running = TRUE;
+        uart0_put("Starting car...\r\n");
+        uart2_put("Starting car...\r\n");
+    }
+    else if ((user_cmd_char == 'x') || (user_cmd_char == 'X')){
+        running = FALSE;
+        uart0_put("Stopping car...\r\n");
+        uart2_put("Stopping car...\r\n");
+    }
+}
 
 /**
  * @brief Adjusts steering based on camera input
@@ -311,15 +355,9 @@ int main(void){
     int track_loss_counter = 0;     // off track counter
     double servo_position = 0.075;  // current position of servo
 
-    // TODO: here are the PID variables
     // Set PID variables to recommended starting points from the Control Systems lecture slides
     pid_values_t steering_pid = {0.5, 0.1, 0.25};
     pid_values_t driving_pid = {0.5, 0.1, 0.25};
-
-    #ifdef USE_UART
-        char uart_buffer [20];
-        char uart_rx_buffer [UART2_RX_BUFFER_LENGTH];
-    #endif
 
     /* Initializations */
     init();
@@ -341,13 +379,11 @@ int main(void){
 
     for(;;){
 
-        /* Check if a message was sent from UART2 */
-        // TODO: Add logic here
-        // message = getfromUART2();
-        // updatePID(message);
-        if (uart2_dataAvailable() == TRUE){
-            uart2_get(uart_rx_buffer, UART2_RX_BUFFER_LENGTH);
-        }
+        /*
+        Check if a message was sent from UART2
+        Example format: d 0.5 0.1 0.25
+                        S 0.75 0.4 0.3
+        */
 
 
         // TODO: add function to split the string into tokens,
@@ -357,16 +393,13 @@ int main(void){
         //  if the num == 1 then print out the help command or print all PID values
 
 
-
         // if the message sent from uart2 was "steer kp ki kd"
         // Update current PID steering variables
-        PrintSteeringValues(steering_pid);
 
 
         // else if "drive kp ki kd"
         // Update current PID driving variables
         // print out new PID values
-        PrintDrivingValues(driving_pid);
 
         // else if "help"
         // print "steer kp ki kd" OR "drive kp ki kd" OR "help" OR "values"
@@ -375,6 +408,11 @@ int main(void){
         // print out current variable values for steering and driving
         // "steering values: Kp = 1, Ki = 2, Kd = 3"
         // "driving values: Kp = 1, Ki = 2, Kd = 3"
+        
+        #ifdef USE_UART
+            if (uart2_dataAvailable() == TRUE)
+                parseUartCmd(&steering_pid, &driving_pid);
+        #endif
 
 
         /* Read camera data */
@@ -384,9 +422,9 @@ int main(void){
         servo_position = adjustSteering(line_statistics, servo_position);
 
         #ifdef USE_UART
-            sprintf(uart_buffer, "servo: %g;  left line idx:  %d;  right line idx:  %d;\n\r", servo_position, line_statistics.left_slope_index, line_statistics.right_slope_index);
-            uart2_put(uart_buffer);
-            uart0_put(uart_buffer);
+            //sprintf(uart_buffer, "servo: %g;  left line idx:  %d;  right line idx:  %d;\n\r", servo_position, line_statistics.left_slope_index, line_statistics.right_slope_index);
+            //uart0_put(uart_buffer);
+            //uart2_put(uart_buffer);
         #endif
 
         /* Set the speed the DC motors should spin */
