@@ -172,6 +172,22 @@ BYTE uart2_getchar(void){
 	return(inChar);
 }
 
+void uart2_get(char *string_buffer, int len){
+	int i = 0;
+	BYTE rxByte = 0;
+	
+	while (i < len){
+		rxByte = uart2_getchar();
+
+		if ((rxByte == '/r') || (rxByte == '/n'))
+			string_buffer[i] = '/0';
+		else
+			string_buffer[i] = rxByte;
+
+		i++;
+	}
+}
+
 void uart2_putchar(char ch){
 	// Wait until transmission of previous bit is complete 
 	// IFG register

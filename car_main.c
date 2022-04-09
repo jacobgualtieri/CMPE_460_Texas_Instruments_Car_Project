@@ -23,8 +23,11 @@
 
 /* Testing and debugging */
 //#define USE_OLED
-//#define USE_UART
+#define USE_UART
 //#define TEST_OLED
+
+/* UART */
+#define UART2_RX_BUFFER_LENGTH 20
 
 /* Servo Positions */
 #define CENTER_POSITION   0.075
@@ -309,11 +312,13 @@ int main(void){
     double servo_position = 0.075;  // current position of servo
 
     // TODO: here are the PID variables
-    pid_values_t steering_pid = {0.1, 0.2, 0.3};
-    pid_values_t driving_pid = {0.1, 0.2, 0.3};
+    // Set PID variables to recommended starting points from the Control Systems lecture slides
+    pid_values_t steering_pid = {0.5, 0.1, 0.25};
+    pid_values_t driving_pid = {0.5, 0.1, 0.25};
 
     #ifdef USE_UART
         char uart_buffer [20];
+        char uart_rx_buffer [UART2_RX_BUFFER_LENGTH];
     #endif
 
     /* Initializations */
@@ -340,6 +345,9 @@ int main(void){
         // TODO: Add logic here
         // message = getfromUART2();
         // updatePID(message);
+        if (uart2_dataAvailable() == TRUE){
+            uart2_get(uart_rx_buffer, UART2_RX_BUFFER_LENGTH);
+        }
 
 
         // TODO: add function to split the string into tokens,
