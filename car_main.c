@@ -43,8 +43,9 @@
 #define RIGHT_IDX_OFFSET 15
 
 /* Speed Settings */
-#define STRAIGHTS_SPEED 23.5
-#define SPEED           23.5
+#define STRAIGHTS_SPEED     23.5
+#define CORNERING_SPEED     23.5
+#define OUTER_WHEEL_SPEEDUP 4.0
 
 /* DC Motor Settings */
 // 3 and 4 motor goes fwd
@@ -68,6 +69,7 @@ uint16_t line[128];             // raw camera data
 uint16_t smoothed_line[128];    // 5-point average of raw data
 BOOLEAN g_sendData;             // TRUE if camera data is ready to read
 BOOLEAN running = FALSE;         // Driving control variable
+BOOLEAN enableSpeedPID = FALSE;
 
 #ifdef USE_UART
     char uart_buffer [20];
@@ -288,31 +290,89 @@ void initDriving(void){
  * @brief Adjusts speed of DC Motors based on turn angle
  * @param servo_position position of the servo
  */
-void adjustDriving(double servo_position){
+double adjustDriving(line_stats_t line_stats, pid_values_t pid_params, double current_speed, double servo_position){
+    uint16_t left_amt, right_amt;
+    int left_line_index, right_line_index;
+    int track_midpoint_idx = 64;
+    int delta = 0;
+    double new_speed = 0.0;
+
     if (running){
-        if (servo_position == SHARP_LEFT){
-            TIMER_A0_PWM_DutyCycle((SPEED-4.0)/100.0, LEFT_MOTOR);
-            TIMER_A0_PWM_DutyCycle((9.0+SPEED)/100.0, RIGHT_MOTOR);
+
+        // PID-Based Speed Control
+        if (enableSpeedPID){
+            right_line_index = line_stats.right_slope_index - RIGHT_IDX_OFFSET;
+            left_line_index = line_stats.left_slope_index;
+            right_amt = -1 * line_stats.right_slope_amount;
+            left_amt = line_stats.left_slope_amount;
+            
+            if (right_line_index < left_line_index){    // error case
+                if (left_amt < right_amt){
+                    // Turn left
+                    track_midpoint_idx = MIDPOINT(0, right_line_index);
+                    delta = 64-track_midpoint_idx;
+                }
+                else {
+                    // Turn Right
+                    track_midpoint_idx = MIDPOINT(left_line_index, 127);
+                    delta = track_midpoint_idx - 64;
+                }
+            }                                           // normal cases
+            else {
+                track_midpoint_idx = MIDPOINT(left_line_index, right_line_index);
+                
+                if (track_midpoint_idx < 64)
+                    delta = 64-track_midpoint_idx;
+                else
+                    delta = track_midpoint_idx - 64;
+            }
+
+            if (5 < delta){
+                new_speed = GenericPID(pid_params, STRAIGHTS_SPEED, current_speed, DRIVING_ERROR_HISTORY);
+                TIMER_A0_PWM_DutyCycle(new_speed/100.0, LEFT_MOTOR);
+                TIMER_A0_PWM_DutyCycle(new_speed/100.0, RIGHT_MOTOR);
+            }
+            else {
+                new_speed = GenericPID(pid_params, CORNERING_SPEED, current_speed, DRIVING_ERROR_HISTORY);
+
+                if (track_midpoint_idx < 64){                                           // Making a left turn
+                    TIMER_A0_PWM_DutyCycle(new_speed/100.0, LEFT_MOTOR);                            // Inner wheel
+                    TIMER_A0_PWM_DutyCycle((new_speed + OUTER_WHEEL_SPEEDUP)/100.0, RIGHT_MOTOR);   // Outer wheel
+                }
+                else {                                                                  // Making a right turn
+                    TIMER_A0_PWM_DutyCycle((new_speed + OUTER_WHEEL_SPEEDUP)/100.0, LEFT_MOTOR);    // Outer wheel
+                    TIMER_A0_PWM_DutyCycle(new_speed/100.0, RIGHT_MOTOR);                           // Inner wheel
+                }
+            }   
 
         }
-        else if ( servo_position == SLIGHT_LEFT ){
-            TIMER_A0_PWM_DutyCycle((SPEED-2.0)/100.0, LEFT_MOTOR);
-            TIMER_A0_PWM_DutyCycle((3.0+SPEED)/100.0, RIGHT_MOTOR);
-        }
-        else if ( servo_position == SHARP_RIGHT ) {
-            TIMER_A0_PWM_DutyCycle((4.0+SPEED)/100.0, LEFT_MOTOR);
-            TIMER_A0_PWM_DutyCycle((SPEED-4.0)/100.0, RIGHT_MOTOR);
 
-        }
-        else{   // Possible cases: Slight right, Straight
-            TIMER_A0_PWM_DutyCycle(STRAIGHTS_SPEED/100.0, LEFT_MOTOR);
-            TIMER_A0_PWM_DutyCycle(STRAIGHTS_SPEED/100.0, RIGHT_MOTOR);
+        // Non-PID Speed Control
+        else {
+            if (servo_position == SHARP_LEFT){
+                TIMER_A0_PWM_DutyCycle((STRAIGHTS_SPEED-4.0)/100.0, LEFT_MOTOR);
+                TIMER_A0_PWM_DutyCycle((9.0+STRAIGHTS_SPEED)/100.0, RIGHT_MOTOR);
+            }
+            else if ( servo_position == SLIGHT_LEFT ){
+                TIMER_A0_PWM_DutyCycle((STRAIGHTS_SPEED-2.0)/100.0, LEFT_MOTOR);
+                TIMER_A0_PWM_DutyCycle((3.0+STRAIGHTS_SPEED)/100.0, RIGHT_MOTOR);
+            }
+            else if ( servo_position == SHARP_RIGHT ) {
+                TIMER_A0_PWM_DutyCycle((4.0+STRAIGHTS_SPEED)/100.0, LEFT_MOTOR);
+                TIMER_A0_PWM_DutyCycle((STRAIGHTS_SPEED-4.0)/100.0, RIGHT_MOTOR);
+            }
+            else {   // Possible cases: Slight right, Straight
+                TIMER_A0_PWM_DutyCycle(STRAIGHTS_SPEED/100.0, LEFT_MOTOR);
+                TIMER_A0_PWM_DutyCycle(STRAIGHTS_SPEED/100.0, RIGHT_MOTOR);
+            }
         }
     }
     else {  // not running -> stop driving
         TIMER_A0_PWM_DutyCycle(0.0, LEFT_MOTOR);
         TIMER_A0_PWM_DutyCycle(0.0, RIGHT_MOTOR);
     }
+
+    return new_speed;
 }
 
 /**
@@ -397,10 +457,11 @@ int main(void){
     line_stats_t line_statistics;   // stats of camera data
     int track_loss_counter = 0;     // off track counter
     double servo_position = 0.075;  // current position of servo
+    double motor_speed = 0.0;
 
     // Set PID variables to recommended starting points from the Control Systems lecture slides
     pid_values_t steering_pid = {0.28, 0.0, 0.0};
-    //pid_values_t driving_pid = {0.5, 0.1, 0.25};
+    pid_values_t driving_pid = {0.5, 0.1, 0.25};
 
     /* Initializations */
     init();
@@ -419,6 +480,7 @@ int main(void){
     /* Begin Infinite Loop */
     EnableInterrupts();
     running = TRUE;
+    enableSpeedPID = FALSE;
 
     for(;;){
 
@@ -471,7 +533,7 @@ int main(void){
         #endif
 
         /* Set the speed the DC motors should spin */
-        adjustDriving(servo_position);
+        motor_speed = adjustDriving(line_statistics, driving_pid, motor_speed, servo_position);
 
         /* Check for track loss or intersection */
         if (isOffTrack(line_statistics.max)) {
