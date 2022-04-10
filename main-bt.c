@@ -8,7 +8,7 @@
 
 #include "msp.h"
 #include "uart.h"         // Main serial funcitonality
-#include "led.h"          // OPTIONAL: Could be useful to display info/warnings
+#include "leds.h"          // OPTIONAL: Could be useful to display info/warnings
 #include <stdio.h>        // General funcitonality
 #include <string.h>       // Useful for string operations and memset
 

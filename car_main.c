@@ -22,7 +22,7 @@
 #include "Steering_PID.h"
 
 /* Testing and debugging */
-//#define USE_OLED
+#define USE_OLED
 #define USE_UART
 //#define TEST_OLED
 
@@ -31,10 +31,10 @@
 
 /* Servo Positions */
 #define CENTER_POSITION   0.075
-#define SHARP_LEFT        0.05  //  .005 from slight left
-#define SLIGHT_LEFT       0.059 //  .01 from center
-#define SHARP_RIGHT       0.091 //  .005 from slight right
-#define SLIGHT_RIGHT      0.085 //  .01 from center
+#define SHARP_RIGHT        0.05  //  .005 from slight left
+#define SLIGHT_RIGHT       0.059 //  .01 from center
+#define SHARP_LEFT       0.1 //  .005 from slight right
+#define SLIGHT_LEFT      0.085 //  .01 from center
 #define ADJUSTMENT_THRESH 7800
 
 /* Directional Thresholds */
@@ -67,7 +67,7 @@ double DRIVING_ERROR_HISTORY[HISTORY_LENGTH];
 uint16_t line[128];             // raw camera data
 uint16_t smoothed_line[128];    // 5-point average of raw data
 BOOLEAN g_sendData;             // TRUE if camera data is ready to read
-BOOLEAN running = TRUE;         // Driving control variable
+BOOLEAN running = FALSE;         // Driving control variable
 
 #ifdef USE_UART
     char uart_buffer [20];
@@ -111,7 +111,7 @@ sharp right:
 
 */
 
-
+/*
 void parseUartCmd(pid_values_t* steering_settings_ptr, pid_values_t* driving_settings_ptr){
 
     char user_cmd_char = 0;
@@ -120,35 +120,38 @@ void parseUartCmd(pid_values_t* steering_settings_ptr, pid_values_t* driving_set
     float new_kd = 0.0;
 
     uart2_get(uart_rx_buffer, UART2_RX_BUFFER_LENGTH);
-    sscanf(uart_rx_buffer, "%c %f %f %f", &user_cmd_char, &new_kp, &new_ki, &new_kd);
+    // sscanf(uart_rx_buffer, "%c %f %f %f", &user_cmd_char, &new_kp, &new_ki, &new_kd);
+    uart0_put(uart_rx_buffer);
+    uart2_put(uart_rx_buffer);
     
-    if ((user_cmd_char == 'd') || (user_cmd_char == 'D')){
-        UPDATE_PID(*driving_settings_ptr, new_kp, new_ki, new_kd);
-        PrintDrivingValues(*driving_settings_ptr);
-    }
-    else if ((user_cmd_char == 's') || (user_cmd_char == 'S')){
-        UPDATE_PID(*steering_settings_ptr, new_kp, new_ki, new_kd);
-        PrintSteeringValues(*steering_settings_ptr);
-    }
-    else if ((user_cmd_char == 'h') || (user_cmd_char == 'H')){
-        uart0_put("'s kp ki kd' OR 'd kp ki kd' OR 'h' OR 'v'\r\n");
-        uart2_put("'s kp ki kd' OR 'd kp ki kd' OR 'h' OR 'v'\r\n");
-    }
-    else if ((user_cmd_char == 'v') || (user_cmd_char == 'V')){
-        PrintSteeringValues(*steering_settings_ptr);
-        PrintDrivingValues(*driving_settings_ptr);
-    }
-    else if ((user_cmd_char == 'g') || (user_cmd_char == 'G')){
-        running = TRUE;
-        uart0_put("Starting car...\r\n");
-        uart2_put("Starting car...\r\n");
-    }
-    else if ((user_cmd_char == 'x') || (user_cmd_char == 'X')){
-        running = FALSE;
-        uart0_put("Stopping car...\r\n");
-        uart2_put("Stopping car...\r\n");
-    }
+//    if ((user_cmd_char == 'd') || (user_cmd_char == 'D')){
+//        UPDATE_PID(*driving_settings_ptr, new_kp, new_ki, new_kd);
+//        PrintDrivingValues(*driving_settings_ptr);
+//    }
+//    else if ((user_cmd_char == 's') || (user_cmd_char == 'S')){
+//        UPDATE_PID(*steering_settings_ptr, new_kp, new_ki, new_kd);
+//        PrintSteeringValues(*steering_settings_ptr);
+//    }
+//    else if ((user_cmd_char == 'h') || (user_cmd_char == 'H')){
+//        uart0_put("'s kp ki kd' OR 'd kp ki kd' OR 'h' OR 'v'\r\n");
+//        uart2_put("'s kp ki kd' OR 'd kp ki kd' OR 'h' OR 'v'\r\n");
+//    }
+//    else if ((user_cmd_char == 'v') || (user_cmd_char == 'V')){
+//        PrintSteeringValues(*steering_settings_ptr);
+//        PrintDrivingValues(*driving_settings_ptr);
+//    }
+//    else if ((user_cmd_char == 'g') || (user_cmd_char == 'G')){
+//        running = TRUE;
+//        uart0_put("Starting car...\r\n");
+//        uart2_put("Starting car...\r\n");
+//    }
+//    else if ((user_cmd_char == 'x') || (user_cmd_char == 'X')){
+//        running = FALSE;
+//        uart0_put("Stopping car...\r\n");
+//        uart2_put("Stopping car...\r\n");
+//    }
 }
+*/
 
 /**
  * @brief Adjusts steering based on camera input
@@ -158,50 +161,90 @@ void parseUartCmd(pid_values_t* steering_settings_ptr, pid_values_t* driving_set
  * @param current_servo_position current position of the servo
  * @return new servo position
  */
-double adjustSteering(line_stats_t line_stats, double current_servo_position){
+double adjustSteering(line_stats_t line_stats, pid_values_t pid_params, double current_servo_position){
     double servo_position = current_servo_position;
     uint16_t left_amt, right_amt;
     int left_line_index, right_line_index;
-    int track_midpoint_idx;
+    int track_midpoint_idx = 64;
+    int delta = 0;
 
     right_line_index = line_stats.right_slope_index - RIGHT_IDX_OFFSET;
     left_line_index = line_stats.left_slope_index;
     right_amt = -1 * line_stats.right_slope_amount;
     left_amt = line_stats.left_slope_amount;
     
-    if (6800 < line_stats.min){     // If the lowest value detected is fairly high, we can go straight ahead
-        servo_position = CENTER_POSITION;
-    }
-    else if (line_stats.max > ADJUSTMENT_THRESH){
-        if (right_line_index > left_line_index){    //  Standard Cases: center, slight right, slight left
-            track_midpoint_idx = MIDPOINT(left_line_index, right_line_index);   
-            if ((track_midpoint_idx >= CENTER_LEFT_IDX) && (track_midpoint_idx <= CENTER_RIGHT_IDX)){  // drive straight
-                servo_position = CENTER_POSITION;
-                LED2_Green();
-            }
-            else{
-                if(track_midpoint_idx > CENTER_RIGHT_IDX){      //  slight left
-                    servo_position = SLIGHT_LEFT;
-                    LED2_Magenta();
-                }
-                else if (track_midpoint_idx < CENTER_LEFT_IDX){ //  slight right
-                    servo_position = SLIGHT_RIGHT;
-                    LED2_Cyan();
-                }
-            }
+    //servo_position = MIDPOINT()/64 * CENTER_POSITION;
+    
+    if (right_line_index < left_line_index){    // error case
+        if (left_amt < right_amt){
+            // Turn left
+            track_midpoint_idx = MIDPOINT(0, right_line_index);
+            delta = 64-track_midpoint_idx;
         }
-        else {      // Directional Error Cases
-            if (left_amt > right_amt){  // sharp left
-                servo_position = SHARP_LEFT;
-                LED2_Red();
-            }
-            else {                      // sharp right
-                servo_position = SHARP_RIGHT;
-                LED2_Blue();
-            }
+        else {
+            // Turn Right
+            track_midpoint_idx = MIDPOINT(left_line_index, 127);
+            delta = track_midpoint_idx - 64;
         }
+    }                                           // normal cases
+    else {
+        track_midpoint_idx = MIDPOINT(left_line_index, right_line_index);
+        
+        if (track_midpoint_idx < 64)
+            delta = 64-track_midpoint_idx;
+        else
+            delta = track_midpoint_idx - 64;
     }
+    
+    
+    // Turning Right
+    servo_position = ((double)delta / 64.0) * CENTER_POSITION;
+    
+    // Turning Left
+    if (track_midpoint_idx < 64){
+        servo_position += (double)CENTER_POSITION;
+    }
+    
+    // Prevent control loop from exceeding servo range
+    if (servo_position < SHARP_RIGHT){
+        servo_position = SHARP_RIGHT;
+    }
+    else if (SHARP_LEFT < servo_position){
+        servo_position = SHARP_LEFT;
+    }
+    
+//    
+//    if (6800 < line_stats.min){     // If the lowest value detected is fairly high, we can go straight ahead
+//        servo_position = CENTER_POSITION;
+//    }
+//    else if (line_stats.max > ADJUSTMENT_THRESH){
+//        if (right_line_index > left_line_index){    //  Standard Cases: center, slight right, slight left
+//            track_midpoint_idx = MIDPOINT(left_line_index, right_line_index);   
+//            if ((track_midpoint_idx >= CENTER_LEFT_IDX) && (track_midpoint_idx <= CENTER_RIGHT_IDX)){  // drive straight
+//                servo_position = CENTER_POSITION;
+//            }
+//            else{
+//                if(track_midpoint_idx > CENTER_RIGHT_IDX){      //  slight left
+//                    servo_position = SLIGHT_RIGHT;
+//                }
+//                else if (track_midpoint_idx < CENTER_LEFT_IDX){ //  slight right
+//                    servo_position = SLIGHT_LEFT;
+//                }
+//            }
+//        }
+//        else {      // Directional Error Cases
+//            if (left_amt > right_amt){  // sharp left
+//                servo_position = SHARP_RIGHT;
+//            }
+//            else {                      // sharp right
+//                servo_position = SHARP_LEFT;
+//            }
+//        }
+//    }
+    
+    servo_position = SteeringPID(pid_params, 0.075, servo_position);
     TIMER_A2_PWM_DutyCycle(servo_position, 1);  // set new servo position
+    
     return servo_position;
 }
 
@@ -356,8 +399,8 @@ int main(void){
     double servo_position = 0.075;  // current position of servo
 
     // Set PID variables to recommended starting points from the Control Systems lecture slides
-    pid_values_t steering_pid = {0.5, 0.1, 0.25};
-    pid_values_t driving_pid = {0.5, 0.1, 0.25};
+    pid_values_t steering_pid = {0.28, 0.0, 0.0};
+    //pid_values_t driving_pid = {0.5, 0.1, 0.25};
 
     /* Initializations */
     init();
@@ -410,8 +453,8 @@ int main(void){
         // "driving values: Kp = 1, Ki = 2, Kd = 3"
         
         #ifdef USE_UART
-            if (uart2_dataAvailable() == TRUE)
-                parseUartCmd(&steering_pid, &driving_pid);
+            //if (uart2_dataAvailable() == TRUE)
+                //parseUartCmd(&steering_pid, &driving_pid);
         #endif
 
 
@@ -419,12 +462,12 @@ int main(void){
         line_statistics = parseCameraData(line, smoothed_line);
 
         /* Turn the servo motor */
-        servo_position = adjustSteering(line_statistics, servo_position);
+        servo_position = adjustSteering(line_statistics, steering_pid, servo_position);
 
         #ifdef USE_UART
-            //sprintf(uart_buffer, "servo: %g;  left line idx:  %d;  right line idx:  %d;\n\r", servo_position, line_statistics.left_slope_index, line_statistics.right_slope_index);
-            //uart0_put(uart_buffer);
-            //uart2_put(uart_buffer);
+            sprintf(uart_buffer, "servo: %g;  left line idx:  %d;  right line idx:  %d;\n\r", servo_position, line_statistics.left_slope_index, line_statistics.right_slope_index);
+            uart0_put(uart_buffer);
+            uart2_put(uart_buffer);
         #endif
 
         /* Set the speed the DC motors should spin */

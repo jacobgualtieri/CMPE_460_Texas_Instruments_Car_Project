@@ -193,21 +193,43 @@ void uart0_get(char *string_buffer, int len){
 
 void uart2_get(char *string_buffer, int len){
 	int i = 0;
-	BYTE rxByte = 0;
+	BYTE ch = 0;
 	
-	while (i < len){
-		rxByte = uart2_getchar();
-
-		if ((rxByte == '\r') || (rxByte == '\n')){
-			string_buffer[i] = '\0';
-			break;
+    for (;;){
+    if (uart2_dataAvailable() == TRUE){
+			
+		// Retrieve the character
+		ch = uart2_getchar();
+		
+		// If enter is pressed
+		if (ch == '\n' || ch == '\r'){
+			// Do nothing
+            break;
 		}
-		else {
-			string_buffer[i] = rxByte;
+		else {			
+			if (i < len){
+				uart2_putchar(ch);
+				string_buffer[i] = ch;
+				i++;
+				
+			}
 		}
+	}}
+                
+//	while (uart2_dataAvailable() == TRUE){                // while there is still room in the buffer
+//		rxByte = uart2_getchar();
 
-		i++;
-	}
+//		if (rxByte == '\r' || rxByte == '\n'){
+//			string_buffer[i] = '\0';
+//			break;
+//		}
+//		else {
+//			string_buffer[i] = rxByte;
+//		}
+
+//		i++;
+//	}
+    ch = 0;
 }
 
 void uart2_putchar(char ch){
