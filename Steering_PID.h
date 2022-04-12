@@ -8,7 +8,7 @@
 #define HISTORY_LENGTH 3
 
 #define STRAIGHT   0.075
-#define FULL_LEFT  0.1
+#define FULL_LEFT  0.11
 #define FULL_RIGHT 0.05
 
 /* Midpoint Calculation */
@@ -32,3 +32,4 @@ void PrintDrivingValues(pid_values_t driving_values);
 double Integrate(double* previous_values);
 double GenericPID(pid_values_t pid_params, double target, double setpoint, double error_terms [HISTORY_LENGTH]);
 double SteeringPID(pid_values_t pid_params, double desired, double actual);
+double DrivingPID(pid_values_t pid_params, double desired, double actual);

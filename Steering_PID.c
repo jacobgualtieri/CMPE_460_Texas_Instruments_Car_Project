@@ -110,3 +110,17 @@ double SteeringPID(pid_values_t pid_params, double desired, double actual){
 
     return new_servo_position;
 }
+
+double DrivingPID(pid_values_t pid_params, double desired, double actual){
+
+    double new_speed = 0.0;
+
+    new_speed = GenericPID(pid_params, desired, actual, DRIVING_ERROR_HISTORY);
+
+    // Prevent control loop from exceeding servo range
+    if (new_speed < 10.0){
+        new_speed = 10.0;
+    }
+
+    return new_speed;
+}

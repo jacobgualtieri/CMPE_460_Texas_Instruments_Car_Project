@@ -22,8 +22,8 @@
 #include "Steering_PID.h"
 
 /* Testing and debugging */
-#define USE_OLED
-#define USE_UART
+//#define USE_OLED
+//#define USE_UART
 //#define TEST_OLED
 
 /* UART */
@@ -33,19 +33,19 @@
 #define CENTER_POSITION   0.075
 #define SHARP_RIGHT        0.05  //  .005 from slight left
 #define SLIGHT_RIGHT       0.059 //  .01 from center
-#define SHARP_LEFT       0.1 //  .005 from slight right
+#define SHARP_LEFT       0.11 //  .005 from slight right
 #define SLIGHT_LEFT      0.085 //  .01 from center
 #define ADJUSTMENT_THRESH 7800
 
 /* Directional Thresholds */
 #define CENTER_LEFT_IDX  58
 #define CENTER_RIGHT_IDX 76
-#define RIGHT_IDX_OFFSET 15
+#define RIGHT_IDX_OFFSET 2
 
 /* Speed Settings */
-#define STRAIGHTS_SPEED     23.5
-#define CORNERING_SPEED     23.5
-#define OUTER_WHEEL_SPEEDUP 4.0
+#define STRAIGHTS_SPEED     40.0
+#define CORNERING_SPEED     30.0
+#define INNER_WHEEL_SLOWDOWN 5.0
 
 /* DC Motor Settings */
 // 3 and 4 motor goes fwd
@@ -54,7 +54,7 @@
 #define RIGHT_MOTOR 4
 
 /* Track Loss Limit */
-#define TRACK_LOSS_LIMIT 5  // Stop limit if off track
+#define TRACK_LOSS_LIMIT 3  // Stop limit if off track
 
 // line stores the current array of camera data
 extern unsigned char OLED_clr_data[1024];
@@ -62,8 +62,8 @@ extern unsigned char OLED_TEXT_ARR[1024];
 extern unsigned char OLED_GRAPH_ARR[1024];
 
 /* Servo Position History Array */
-double STEERING_ERROR_HISTORY[HISTORY_LENGTH];
-double DRIVING_ERROR_HISTORY[HISTORY_LENGTH];
+double STEERING_ERROR_HISTORY[HISTORY_LENGTH] = {0.0, 0.0, 0.0};
+double DRIVING_ERROR_HISTORY[HISTORY_LENGTH] = {0.0, 0.0, 0.0};
 
 uint16_t line[128];             // raw camera data
 uint16_t smoothed_line[128];    // 5-point average of raw data
@@ -327,21 +327,22 @@ double adjustDriving(line_stats_t line_stats, pid_values_t pid_params, double cu
                     delta = track_midpoint_idx - 64;
             }
 
-            if (5 < delta){
-                new_speed = GenericPID(pid_params, STRAIGHTS_SPEED, current_speed, DRIVING_ERROR_HISTORY);
+            if (delta < 12){
+                new_speed = DrivingPID(pid_params, STRAIGHTS_SPEED, current_speed);
+                
                 TIMER_A0_PWM_DutyCycle(new_speed/100.0, LEFT_MOTOR);
                 TIMER_A0_PWM_DutyCycle(new_speed/100.0, RIGHT_MOTOR);
             }
             else {
-                new_speed = GenericPID(pid_params, CORNERING_SPEED, current_speed, DRIVING_ERROR_HISTORY);
+                new_speed = DrivingPID(pid_params, CORNERING_SPEED, current_speed);
 
                 if (track_midpoint_idx < 64){                                           // Making a left turn
-                    TIMER_A0_PWM_DutyCycle(new_speed/100.0, LEFT_MOTOR);                            // Inner wheel
-                    TIMER_A0_PWM_DutyCycle((new_speed + OUTER_WHEEL_SPEEDUP)/100.0, RIGHT_MOTOR);   // Outer wheel
+                    TIMER_A0_PWM_DutyCycle((new_speed - INNER_WHEEL_SLOWDOWN)/100.0, LEFT_MOTOR);                            // Inner wheel
+                    TIMER_A0_PWM_DutyCycle((new_speed)/100.0, RIGHT_MOTOR);   // Outer wheel
                 }
                 else {                                                                  // Making a right turn
-                    TIMER_A0_PWM_DutyCycle((new_speed + OUTER_WHEEL_SPEEDUP)/100.0, LEFT_MOTOR);    // Outer wheel
-                    TIMER_A0_PWM_DutyCycle(new_speed/100.0, RIGHT_MOTOR);                           // Inner wheel
+                    TIMER_A0_PWM_DutyCycle((new_speed)/100.0, LEFT_MOTOR);    // Outer wheel
+                    TIMER_A0_PWM_DutyCycle((new_speed - INNER_WHEEL_SLOWDOWN)/100.0, RIGHT_MOTOR);                           // Inner wheel
                 }
             }   
 
@@ -353,15 +354,15 @@ double adjustDriving(line_stats_t line_stats, pid_values_t pid_params, double cu
                 TIMER_A0_PWM_DutyCycle((STRAIGHTS_SPEED-4.0)/100.0, LEFT_MOTOR);
                 TIMER_A0_PWM_DutyCycle((9.0+STRAIGHTS_SPEED)/100.0, RIGHT_MOTOR);
             }
-            else if ( servo_position == SLIGHT_LEFT ){
-                TIMER_A0_PWM_DutyCycle((STRAIGHTS_SPEED-2.0)/100.0, LEFT_MOTOR);
-                TIMER_A0_PWM_DutyCycle((3.0+STRAIGHTS_SPEED)/100.0, RIGHT_MOTOR);
-            }
+            // else if ( servo_position == SLIGHT_LEFT ){
+            //     TIMER_A0_PWM_DutyCycle((STRAIGHTS_SPEED-2.0)/100.0, LEFT_MOTOR);
+            //     TIMER_A0_PWM_DutyCycle((3.0+STRAIGHTS_SPEED)/100.0, RIGHT_MOTOR);
+            // }
             else if ( servo_position == SHARP_RIGHT ) {
                 TIMER_A0_PWM_DutyCycle((4.0+STRAIGHTS_SPEED)/100.0, LEFT_MOTOR);
                 TIMER_A0_PWM_DutyCycle((STRAIGHTS_SPEED-4.0)/100.0, RIGHT_MOTOR);
             }
-            else {   // Possible cases: Slight right, Straight
+            else {   // Possible cases: Slight right, Slight left, Straight
                 TIMER_A0_PWM_DutyCycle(STRAIGHTS_SPEED/100.0, LEFT_MOTOR);
                 TIMER_A0_PWM_DutyCycle(STRAIGHTS_SPEED/100.0, RIGHT_MOTOR);
             }
@@ -457,30 +458,19 @@ int main(void){
     line_stats_t line_statistics;   // stats of camera data
     int track_loss_counter = 0;     // off track counter
     double servo_position = 0.075;  // current position of servo
-    double motor_speed = 0.0;
+    double motor_speed = 20.0;
 
     // Set PID variables to recommended starting points from the Control Systems lecture slides
-    pid_values_t steering_pid = {0.28, 0.0, 0.0};
-    pid_values_t driving_pid = {0.5, 0.1, 0.25};
+    pid_values_t steering_pid = {0.07, 0.0, 0.0};
+    pid_values_t driving_pid = {0.3, 0.0, 0.0};
 
     /* Initializations */
     init();
 
-    /* Test OLED Display */
-    #ifdef TEST_OLED
-        OLED_draw_line(1, 1, (unsigned char *)"Hello World");   // casting strings to (unsigned char *) bc keil is stupid
-        OLED_draw_line(2, 2, (unsigned char *)"How are you?");
-        OLED_draw_line(3, 3, (unsigned char *)"Goodbye");
-        OLED_write_display(OLED_TEXT_ARR);
-        msdelay(1000);
-        for(j = 0; j < 1024; j++){ OLED_TEXT_ARR[j] = 0; }
-        OLED_display_clear();
-    #endif
-
     /* Begin Infinite Loop */
     EnableInterrupts();
     running = TRUE;
-    enableSpeedPID = FALSE;
+    enableSpeedPID = TRUE;
 
     for(;;){
 
@@ -525,15 +515,16 @@ int main(void){
 
         /* Turn the servo motor */
         servo_position = adjustSteering(line_statistics, steering_pid, servo_position);
-
-        #ifdef USE_UART
-            sprintf(uart_buffer, "servo: %g;  left line idx:  %d;  right line idx:  %d;\n\r", servo_position, line_statistics.left_slope_index, line_statistics.right_slope_index);
-            uart0_put(uart_buffer);
-            uart2_put(uart_buffer);
-        #endif
-
+        
         /* Set the speed the DC motors should spin */
         motor_speed = adjustDriving(line_statistics, driving_pid, motor_speed, servo_position);
+
+        #ifdef USE_UART
+            //sprintf(uart_buffer, "servo: %g;  left line idx:  %d;  right line idx:  %d;\n\r", servo_position, line_statistics.left_slope_index, line_statistics.right_slope_index);
+            sprintf(uart_buffer, "%g   %g   %g    %g\r\n", DRIVING_ERROR_HISTORY[0], DRIVING_ERROR_HISTORY[1], DRIVING_ERROR_HISTORY[2], motor_speed);
+            //uart0_put(uart_buffer);
+            uart2_put(uart_buffer);
+        #endif
 
         /* Check for track loss or intersection */
         if (isOffTrack(line_statistics.max)) {
