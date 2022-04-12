@@ -92,16 +92,16 @@ double SteeringPID(pid_values_t pid_params, double desired, double actual){
     }
 
     /* LED stuff for debugging */
-    if (new_servo_position <= 0.065){
+    if (new_servo_position < 0.059){
         LED2_Red();
     }
-    else if ((0.065 < new_servo_position) && (new_servo_position < 0.070)){
+    else if (new_servo_position < 0.070){
         LED2_Magenta();
     }
-    else if ((0.08 < new_servo_position) && (new_servo_position < 0.085)){
+    else if ((0.08 < new_servo_position) && (new_servo_position <= 0.085)){
         LED2_Cyan();
     }
-    else if (0.085 <= new_servo_position){
+    else if (0.085 < new_servo_position){
         LED2_Blue();
     }
     else {

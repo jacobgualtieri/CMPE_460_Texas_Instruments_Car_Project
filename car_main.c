@@ -41,11 +41,12 @@
 #define CENTER_LEFT_IDX  58
 #define CENTER_RIGHT_IDX 76
 #define RIGHT_IDX_OFFSET 2
+#define MIDPOINT_OFFSET 0
 
 /* Speed Settings */
-#define STRAIGHTS_SPEED     40.0
-#define CORNERING_SPEED     30.0
-#define INNER_WHEEL_SLOWDOWN 5.0
+#define STRAIGHTS_SPEED     30.0
+#define CORNERING_SPEED     27.0
+#define INNER_WHEEL_SLOWDOWN 4.0
 
 /* DC Motor Settings */
 // 3 and 4 motor goes fwd
@@ -69,7 +70,7 @@ uint16_t line[128];             // raw camera data
 uint16_t smoothed_line[128];    // 5-point average of raw data
 BOOLEAN g_sendData;             // TRUE if camera data is ready to read
 BOOLEAN running = FALSE;         // Driving control variable
-BOOLEAN enableSpeedPID = FALSE;
+BOOLEAN enableSpeedPID = TRUE;
 
 #ifdef USE_UART
     char uart_buffer [20];
@@ -101,17 +102,29 @@ void initSteering(void){
     TIMER_A2_PWM_Init(CalcPeriodFromFrequency(1000.0), CENTER_POSITION, 1);
 }
 
-/*
-// TODO: Do we still need this?
-Tuning
 
-left threshold: 15
-sharp left:
+// TODO: add function to split the string into tokens,
+//  get the number of tokens
+//  if the num == 4 then read the first token and call the steer or
+//  drive update PID values funciton
+//  if the num == 1 then print out the help command or print all PID values
 
-right: 95
-sharp right:
 
-*/
+// if the message sent from uart2 was "steer kp ki kd"
+// Update current PID steering variables
+
+
+// else if "drive kp ki kd"
+// Update current PID driving variables
+// print out new PID values
+
+// else if "help"
+// print "steer kp ki kd" OR "drive kp ki kd" OR "help" OR "values"
+
+// else if "values"
+// print out current variable values for steering and driving
+// "steering values: Kp = 1, Ki = 2, Kd = 3"
+// "driving values: Kp = 1, Ki = 2, Kd = 3"
 
 /*
 void parseUartCmd(pid_values_t* steering_settings_ptr, pid_values_t* driving_settings_ptr){
@@ -122,36 +135,36 @@ void parseUartCmd(pid_values_t* steering_settings_ptr, pid_values_t* driving_set
     float new_kd = 0.0;
 
     uart2_get(uart_rx_buffer, UART2_RX_BUFFER_LENGTH);
-    // sscanf(uart_rx_buffer, "%c %f %f %f", &user_cmd_char, &new_kp, &new_ki, &new_kd);
+    sscanf(uart_rx_buffer, "%c %f %f %f", &user_cmd_char, &new_kp, &new_ki, &new_kd);
     uart0_put(uart_rx_buffer);
     uart2_put(uart_rx_buffer);
     
-//    if ((user_cmd_char == 'd') || (user_cmd_char == 'D')){
-//        UPDATE_PID(*driving_settings_ptr, new_kp, new_ki, new_kd);
-//        PrintDrivingValues(*driving_settings_ptr);
-//    }
-//    else if ((user_cmd_char == 's') || (user_cmd_char == 'S')){
-//        UPDATE_PID(*steering_settings_ptr, new_kp, new_ki, new_kd);
-//        PrintSteeringValues(*steering_settings_ptr);
-//    }
-//    else if ((user_cmd_char == 'h') || (user_cmd_char == 'H')){
-//        uart0_put("'s kp ki kd' OR 'd kp ki kd' OR 'h' OR 'v'\r\n");
-//        uart2_put("'s kp ki kd' OR 'd kp ki kd' OR 'h' OR 'v'\r\n");
-//    }
-//    else if ((user_cmd_char == 'v') || (user_cmd_char == 'V')){
-//        PrintSteeringValues(*steering_settings_ptr);
-//        PrintDrivingValues(*driving_settings_ptr);
-//    }
-//    else if ((user_cmd_char == 'g') || (user_cmd_char == 'G')){
-//        running = TRUE;
-//        uart0_put("Starting car...\r\n");
-//        uart2_put("Starting car...\r\n");
-//    }
-//    else if ((user_cmd_char == 'x') || (user_cmd_char == 'X')){
-//        running = FALSE;
-//        uart0_put("Stopping car...\r\n");
-//        uart2_put("Stopping car...\r\n");
-//    }
+   if ((user_cmd_char == 'd') || (user_cmd_char == 'D')){
+       UPDATE_PID(*driving_settings_ptr, new_kp, new_ki, new_kd);
+       PrintDrivingValues(*driving_settings_ptr);
+   }
+   else if ((user_cmd_char == 's') || (user_cmd_char == 'S')){
+       UPDATE_PID(*steering_settings_ptr, new_kp, new_ki, new_kd);
+       PrintSteeringValues(*steering_settings_ptr);
+   }
+   else if ((user_cmd_char == 'h') || (user_cmd_char == 'H')){
+       uart0_put("'s kp ki kd' OR 'd kp ki kd' OR 'h' OR 'v'\r\n");
+       uart2_put("'s kp ki kd' OR 'd kp ki kd' OR 'h' OR 'v'\r\n");
+   }
+   else if ((user_cmd_char == 'v') || (user_cmd_char == 'V')){
+       PrintSteeringValues(*steering_settings_ptr);
+       PrintDrivingValues(*driving_settings_ptr);
+   }
+   else if ((user_cmd_char == 'g') || (user_cmd_char == 'G')){
+       running = TRUE;
+       uart0_put("Starting car...\r\n");
+       uart2_put("Starting car...\r\n");
+   }
+   else if ((user_cmd_char == 'x') || (user_cmd_char == 'X')){
+       running = FALSE;
+       uart0_put("Stopping car...\r\n");
+       uart2_put("Stopping car...\r\n");
+   }
 }
 */
 
@@ -170,7 +183,7 @@ double adjustSteering(line_stats_t line_stats, pid_values_t pid_params, double c
     int track_midpoint_idx = 64;
     int delta = 0;
 
-    right_line_index = line_stats.right_slope_index - RIGHT_IDX_OFFSET;
+    right_line_index = line_stats.right_slope_index + RIGHT_IDX_OFFSET;
     left_line_index = line_stats.left_slope_index;
     right_amt = -1 * line_stats.right_slope_amount;
     left_amt = line_stats.left_slope_amount;
@@ -190,59 +203,24 @@ double adjustSteering(line_stats_t line_stats, pid_values_t pid_params, double c
         }
     }                                           // normal cases
     else {
-        track_midpoint_idx = MIDPOINT(left_line_index, right_line_index);
+        track_midpoint_idx = MIDPOINT(left_line_index, right_line_index) - MIDPOINT_OFFSET;
         
-        if (track_midpoint_idx < 64)
-            delta = 64-track_midpoint_idx;
-        else
-            delta = track_midpoint_idx - 64;
+        delta = 64-track_midpoint_idx;
     }
     
     
-    // Turning Right
-    servo_position = ((double)delta / 64.0) * CENTER_POSITION;
+    if (delta == 0)
+        servo_position = CENTER_POSITION;
+    else
+        servo_position = CENTER_POSITION + (((double)delta / 64.0) * CENTER_POSITION);
     
-    // Turning Left
-    if (track_midpoint_idx < 64){
-        servo_position += (double)CENTER_POSITION;
-    }
     
     // Prevent control loop from exceeding servo range
-    if (servo_position < SHARP_RIGHT){
+    if (servo_position < SHARP_RIGHT)
         servo_position = SHARP_RIGHT;
-    }
-    else if (SHARP_LEFT < servo_position){
+    else if (SHARP_LEFT < servo_position)
         servo_position = SHARP_LEFT;
-    }
     
-//    
-//    if (6800 < line_stats.min){     // If the lowest value detected is fairly high, we can go straight ahead
-//        servo_position = CENTER_POSITION;
-//    }
-//    else if (line_stats.max > ADJUSTMENT_THRESH){
-//        if (right_line_index > left_line_index){    //  Standard Cases: center, slight right, slight left
-//            track_midpoint_idx = MIDPOINT(left_line_index, right_line_index);   
-//            if ((track_midpoint_idx >= CENTER_LEFT_IDX) && (track_midpoint_idx <= CENTER_RIGHT_IDX)){  // drive straight
-//                servo_position = CENTER_POSITION;
-//            }
-//            else{
-//                if(track_midpoint_idx > CENTER_RIGHT_IDX){      //  slight left
-//                    servo_position = SLIGHT_RIGHT;
-//                }
-//                else if (track_midpoint_idx < CENTER_LEFT_IDX){ //  slight right
-//                    servo_position = SLIGHT_LEFT;
-//                }
-//            }
-//        }
-//        else {      // Directional Error Cases
-//            if (left_amt > right_amt){  // sharp left
-//                servo_position = SHARP_RIGHT;
-//            }
-//            else {                      // sharp right
-//                servo_position = SHARP_LEFT;
-//            }
-//        }
-//    }
     
     servo_position = SteeringPID(pid_params, 0.075, servo_position);
     TIMER_A2_PWM_DutyCycle(servo_position, 1);  // set new servo position
@@ -301,7 +279,7 @@ double adjustDriving(line_stats_t line_stats, pid_values_t pid_params, double cu
 
         // PID-Based Speed Control
         if (enableSpeedPID){
-            right_line_index = line_stats.right_slope_index - RIGHT_IDX_OFFSET;
+            right_line_index = line_stats.right_slope_index;
             left_line_index = line_stats.left_slope_index;
             right_amt = -1 * line_stats.right_slope_amount;
             left_amt = line_stats.left_slope_amount;
@@ -327,7 +305,7 @@ double adjustDriving(line_stats_t line_stats, pid_values_t pid_params, double cu
                     delta = track_midpoint_idx - 64;
             }
 
-            if (delta < 12){
+            if (delta < 7){
                 new_speed = DrivingPID(pid_params, STRAIGHTS_SPEED, current_speed);
                 
                 TIMER_A0_PWM_DutyCycle(new_speed/100.0, LEFT_MOTOR);
@@ -337,8 +315,8 @@ double adjustDriving(line_stats_t line_stats, pid_values_t pid_params, double cu
                 new_speed = DrivingPID(pid_params, CORNERING_SPEED, current_speed);
 
                 if (track_midpoint_idx < 64){                                           // Making a left turn
-                    TIMER_A0_PWM_DutyCycle((new_speed - INNER_WHEEL_SLOWDOWN)/100.0, LEFT_MOTOR);                            // Inner wheel
-                    TIMER_A0_PWM_DutyCycle((new_speed)/100.0, RIGHT_MOTOR);   // Outer wheel
+                    TIMER_A0_PWM_DutyCycle((new_speed - (INNER_WHEEL_SLOWDOWN + 2.0))/100.0, LEFT_MOTOR);                            // Inner wheel
+                    TIMER_A0_PWM_DutyCycle((new_speed+1.0)/100.0, RIGHT_MOTOR);   // Outer wheel
                 }
                 else {                                                                  // Making a right turn
                     TIMER_A0_PWM_DutyCycle((new_speed)/100.0, LEFT_MOTOR);    // Outer wheel
@@ -439,13 +417,6 @@ void init(void){
         OLED_display_on();
         OLED_display_clear();
         OLED_display_on();
-    #else
-        #ifdef TEST_OLED            // Cascaded if-def to avoid initializing OLED screen twice
-            OLED_Init();
-            OLED_display_on();
-            OLED_display_clear();
-            OLED_display_on();
-        #endif
     #endif
 }
 
@@ -454,6 +425,14 @@ void PrintPIDValues(pid_values_t steer, pid_values_t drive){
     PrintDrivingValues(drive);
 }
 
+
+/*
+    TODO
+    Notes from Beato
+    - Could go faster (can't it always lol)
+    - Convert error_history [] params to pointer
+        - May explain why only term[0] gets through
+*/
 int main(void){
     line_stats_t line_statistics;   // stats of camera data
     int track_loss_counter = 0;     // off track counter
@@ -461,8 +440,8 @@ int main(void){
     double motor_speed = 20.0;
 
     // Set PID variables to recommended starting points from the Control Systems lecture slides
-    pid_values_t steering_pid = {0.07, 0.0, 0.0};
-    pid_values_t driving_pid = {0.3, 0.0, 0.0};
+    pid_values_t steering_pid = {0.13, 0.05, 0.0};
+    pid_values_t driving_pid = {0.1, 0.05, 0.0};
 
     /* Initializations */
     init();
@@ -472,37 +451,7 @@ int main(void){
     running = TRUE;
     enableSpeedPID = TRUE;
 
-    for(;;){
-
-        /*
-        Check if a message was sent from UART2
-        Example format: d 0.5 0.1 0.25
-                        S 0.75 0.4 0.3
-        */
-
-
-        // TODO: add function to split the string into tokens,
-        //  get the number of tokens
-        //  if the num == 4 then read the first token and call the steer or
-        //  drive update PID values funciton
-        //  if the num == 1 then print out the help command or print all PID values
-
-
-        // if the message sent from uart2 was "steer kp ki kd"
-        // Update current PID steering variables
-
-
-        // else if "drive kp ki kd"
-        // Update current PID driving variables
-        // print out new PID values
-
-        // else if "help"
-        // print "steer kp ki kd" OR "drive kp ki kd" OR "help" OR "values"
-
-        // else if "values"
-        // print out current variable values for steering and driving
-        // "steering values: Kp = 1, Ki = 2, Kd = 3"
-        // "driving values: Kp = 1, Ki = 2, Kd = 3"
+    for (;;){
         
         #ifdef USE_UART
             //if (uart2_dataAvailable() == TRUE)
@@ -522,17 +471,15 @@ int main(void){
         #ifdef USE_UART
             //sprintf(uart_buffer, "servo: %g;  left line idx:  %d;  right line idx:  %d;\n\r", servo_position, line_statistics.left_slope_index, line_statistics.right_slope_index);
             sprintf(uart_buffer, "%g   %g   %g    %g\r\n", DRIVING_ERROR_HISTORY[0], DRIVING_ERROR_HISTORY[1], DRIVING_ERROR_HISTORY[2], motor_speed);
-            //uart0_put(uart_buffer);
-            uart2_put(uart_buffer);
+            uart0_put(uart_buffer);
+            //uart2_put(uart_buffer);
         #endif
 
         /* Check for track loss or intersection */
-        if (isOffTrack(line_statistics.max)) {
+        if (isOffTrack(line_statistics.max))
             track_loss_counter += 1;    //  if off track increment counter
-        }
-        else {
+        else
             track_loss_counter = 0; //  if on track, reset counter to zero
-        }
 
         /* carpet detection reached count limit */
         if (track_loss_counter > TRACK_LOSS_LIMIT){ running = FALSE; }
