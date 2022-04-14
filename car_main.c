@@ -39,11 +39,6 @@
 #define RIGHT_IDX_OFFSET 2  //  Shift used to account for camera mounting
 #define MIDPOINT_OFFSET 0
 
-/* Speed Settings */
-#define STRAIGHTS_SPEED     30.0    //  desired speed in the straight
-#define CORNERING_SPEED     27.0    //  desired speed in the corner
-#define INNER_WHEEL_SLOWDOWN 4.0    //  decrease factor for inner wheel on turns
-
 typedef struct speed_settings {
     double straight_speed;
     double corner_speed;
