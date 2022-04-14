@@ -189,9 +189,8 @@ void initDriving(void){
 
 /**
  * @brief Adjusts speed of DC Motors based on turn angle
- * @param servo_position position of the servo
  */
-double adjustDriving(line_stats_t line_stats, pid_values_t pid_params, double current_speed, double servo_position){
+double adjustDriving(line_stats_t line_stats, pid_values_t pid_params, double current_speed){
     uint16_t left_amt, right_amt;
     int left_line_index, right_line_index;
     int track_midpoint_idx;
@@ -354,11 +353,11 @@ int main(void){
         /* Read camera data */
         line_statistics = parseCameraData(line, smoothed_line);
 
-        /* Turn the servo motor */
+        /* Adjust steering direction */
         servo_position = adjustSteering(line_statistics, steering_pid);
         
-        /* Set the speed the DC motors should spin */
-        motor_speed = adjustDriving(line_statistics, driving_pid, motor_speed, servo_position);
+        /* Adjust DC Motor speed */
+        motor_speed = adjustDriving(line_statistics, driving_pid, motor_speed);
 
         #ifdef USE_UART
             //sprintf(uart_buffer, "servo: %g;  left line idx:  %d;  right line idx:  %d;\n\r", servo_position, line_statistics.left_slope_index, line_statistics.right_slope_index);
