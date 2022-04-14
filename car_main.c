@@ -330,7 +330,7 @@ void init(void){
 int main(void){
     line_stats_t line_statistics;   // stats of camera data
     int track_loss_counter = 0;     // off track counter
-    double servo_position;  // current position of servo
+    double servo_position;          // current position of servo
     double motor_speed = 20.0;
 
     // Set PID variables to recommended starting points from the Control Systems lecture slides
@@ -343,8 +343,46 @@ int main(void){
     /* Begin Infinite Loop */
     EnableInterrupts();
     running = FALSE;
+    /**
+     * On switch 1 press: cycle through race modes (Red, Green, Blue)
+     *
+     * When switch 2 is pressed,
+     * turn running on and select that mode
+     * turn LED off
+     */
+
+    enum raceMode{Jog, Run, Sprint} raceMode;
+    raceMode = Sprint;  //  Jog will show up as first race mode
+
+     for (;;){
+         if (Switch1_Pressed()){
+             raceMode++;
+             switch (raceMode) {
+                 case Jog:
+                     LED2_Red();
+                     break;
+                 case Run:
+                     LED2_Green();
+                     break;
+                 case Sprint:
+                     LED2_Blue();
+                     break;
+                 default:
+                     LED2_Off();
+                     break;
+             }
+         }
+         if (Switch2_Pressed()){
+             LED2_Off();
+             running = TRUE;
+             // TODO: assign the values related to the race mode here
+             break;
+         }
+     }
 
     for (;;){
+
+
         
         #ifdef USE_UART
             //if (uart2_dataAvailable() == TRUE)
