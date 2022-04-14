@@ -46,6 +46,14 @@ void Switch2_Init(void){
 
 }
 
+/**
+ * @brief Initializes both switches
+ */
+void InitSwitches(void){
+    Switch1_Init();
+    Switch2_Init();
+}
+
 //------------Switch_Input------------
 // Read and return the status of Switch1
 // Input: none
