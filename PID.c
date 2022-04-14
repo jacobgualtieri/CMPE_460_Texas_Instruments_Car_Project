@@ -1,26 +1,8 @@
-#include <stdlib.h>
-#include <stdint.h>
-#include <stdio.h>
 #include "PID.h"
 #include "leds.h"
-#include "uart.h"
 
 extern double STEERING_ERROR_HISTORY[HISTORY_LENGTH];
 extern double DRIVING_ERROR_HISTORY[HISTORY_LENGTH];
-
-void PrintSteeringValues(pid_values_t pid){
-    char string [100];
-    sprintf(string, "Steering values: Kp = %.3f, Ki = %.3f, Kd = %.3f\n\r", pid.kp, pid.ki, pid.kd);
-    uart2_put(string);
-    uart0_put(string);
-}
-
-void PrintDrivingValues(pid_values_t pid){
-    char string [100];
-    sprintf(string, "Driving values: Kp = %.3f, Ki = %.3f, Kd = %.3f\n\r", pid.kp, pid.ki, pid.kd);
-    uart2_put(string);
-    uart0_put(string);
-}
 
 /**
  * @brief Integrates via trapezoid rule
@@ -39,11 +21,11 @@ double Integrate(double previous_values [HISTORY_LENGTH]){
 }
 
 double GenericPID(pid_values_t pid_params, double desired, double actual, double error_terms [HISTORY_LENGTH]){
-    double error = 0.0;
-    double proportional_gain = 0.0;
-    double integral_gain = 0.0;
-    double derivative_gain = 0.0;
-    double new_setpoint = 0.0;
+    double error;
+    double proportional_gain;
+    double integral_gain;
+    double derivative_gain;
+    double new_setpoint;
 
     /*
     e(n)   = error
@@ -79,7 +61,7 @@ double GenericPID(pid_values_t pid_params, double desired, double actual, double
  * - Start with k_p = 0.5
  */
 double SteeringPID(pid_values_t pid_params, double desired, double actual){
-    double new_servo_position = 0.075;
+    double new_servo_position;
 
     new_servo_position = GenericPID(pid_params, desired, actual, STEERING_ERROR_HISTORY);
 
@@ -113,11 +95,9 @@ double SteeringPID(pid_values_t pid_params, double desired, double actual){
 
 double DrivingPID(pid_values_t pid_params, double desired, double actual){
 
-    double new_speed = 0.0;
+    double new_speed = GenericPID(pid_params, desired, actual, DRIVING_ERROR_HISTORY);
 
-    new_speed = GenericPID(pid_params, desired, actual, DRIVING_ERROR_HISTORY);
-
-    // Prevent control loop from exceeding servo range
+    // Prevent speed from being too slow to move
     if (new_speed < 10.0){
         new_speed = 10.0;
     }
