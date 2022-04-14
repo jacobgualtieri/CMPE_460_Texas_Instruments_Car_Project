@@ -328,7 +328,7 @@ void init(void){
 int main(void){
     line_stats_t line_statistics;   // stats of camera data
     int track_loss_counter = 0;     // off track counter
-    double servo_position = 0.075;  // current position of servo
+    double servo_position;  // current position of servo
     double motor_speed = 20.0;
 
     // Set PID variables to recommended starting points from the Control Systems lecture slides
@@ -340,7 +340,7 @@ int main(void){
 
     /* Begin Infinite Loop */
     EnableInterrupts();
-    running = TRUE;
+    running = FALSE;
 
     for (;;){
         
