@@ -20,6 +20,7 @@
 #include "Camera.h"
 #include "TimerA.h"
 #include "PID.h"
+#include "switches.h"
 
 /* Testing and debugging */
 //#define USE_OLED
@@ -302,6 +303,7 @@ void init(void){
     DisableInterrupts();
     LED1_Init();
     LED2_Init();
+    InitSwitches();
     INIT_Camera();
     initSteering();
     initDriving();
