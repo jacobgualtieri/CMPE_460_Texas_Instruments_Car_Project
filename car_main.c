@@ -19,7 +19,7 @@
 #include "ControlPins.h"
 #include "Camera.h"
 #include "TimerA.h"
-#include "Steering_PID.h"
+#include "PID.h"
 
 /* Testing and debugging */
 //#define USE_OLED
