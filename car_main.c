@@ -376,6 +376,7 @@ int main(void){
              LED2_Off();
              running = TRUE;
              // TODO: assign the values related to the race mode here
+             //  might be better to handle that above in the switch statement??
              break;
          }
      }
