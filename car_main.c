@@ -354,32 +354,32 @@ int main(void){
     enum raceMode{Jog, Run, Sprint} raceMode;
     raceMode = Sprint;  //  Jog will show up as first race mode
 
-     for (;;){
-         if (Switch1_Pressed()){
-             raceMode++;
-             switch (raceMode) {
-                 case Jog:
-                     LED2_Red();
-                     break;
-                 case Run:
-                     LED2_Green();
-                     break;
-                 case Sprint:
-                     LED2_Blue();
-                     break;
-                 default:
-                     LED2_Off();
-                     break;
-             }
-         }
-         if (Switch2_Pressed()){
-             LED2_Off();
-             running = TRUE;
-             // TODO: assign the values related to the race mode here
-             //  might be better to handle that above in the switch statement??
-             break;
-         }
-     }
+    for (;;){
+        if (Switch1_Pressed()){
+            raceMode++;
+            switch (raceMode) {
+                case Jog:
+                    LED2_Red();
+                    break;
+                case Run:
+                    LED2_Green();
+                    break;
+                case Sprint:
+                    LED2_Blue();
+                    break;
+                default:
+                    LED2_Off();
+                    break;
+            }
+        }
+        if (Switch2_Pressed()){
+            LED2_Off();
+            running = TRUE;
+            // TODO: assign the values related to the race mode here
+            //  might be better to handle that above in the switch statement??
+            break;
+        }
+    }
 
     for (;;){
 
