@@ -32,18 +32,15 @@
 
 /* Servo Positions */
 #define CENTER_POSITION 0.075   //  Center position of servo
-#define SHARP_RIGHT     0.05    //  .005 from slight left
-#define SHARP_LEFT      0.11    //  .005 from slight right
 
 /* Directional Thresholds */
 #define RIGHT_IDX_OFFSET 2  //  Shift used to account for camera mounting
 #define MIDPOINT_OFFSET 0
 
-typedef struct speed_settings {
-    double straight_speed;
-    double corner_speed;
-    double inner_wheel_slowdown;
-} speed_settings;
+/* Speed Settings */
+#define STRAIGHTS_SPEED     30.0    //  desired speed in the straight
+#define CORNERING_SPEED     27.0    //  desired speed in the corner
+#define INNER_WHEEL_SLOWDOWN 4.0    //  decrease factor for inner wheel on turns
 
 /* DC Motor Settings */
 // 3 and 4 motor goes' fwd
@@ -54,10 +51,18 @@ typedef struct speed_settings {
 /* Track Loss Limit */
 #define TRACK_LOSS_LIMIT 3  // Stop limit if off track
 
+
 // line stores the current array of camera data
-extern unsigned char OLED_clr_data[1024];
-extern unsigned char OLED_TEXT_ARR[1024];
-extern unsigned char OLED_GRAPH_ARR[1024];
+#ifdef USE_OLED
+    extern unsigned char OLED_clr_data[1024];
+    extern unsigned char OLED_TEXT_ARR[1024];
+    extern unsigned char OLED_GRAPH_ARR[1024];
+#endif
+
+#ifdef USE_UART
+    char uart_tx_buffer [20];
+    char uart_rx_buffer [UART2_RX_BUFFER_LENGTH];
+#endif
 
 /* Servo Position History Array */
 double STEERING_ERROR_HISTORY[HISTORY_LENGTH] = {0.0, 0.0, 0.0};
@@ -68,10 +73,6 @@ uint16_t smoothed_line[128];    // 5-point average of raw data
 BOOLEAN g_sendData;             // TRUE if camera data is ready to read
 BOOLEAN running = FALSE;        // Driving control variable
 
-#ifdef USE_UART
-    char uart_buffer [20];
-    char uart_rx_buffer [UART2_RX_BUFFER_LENGTH];
-#endif
 
 /**
  * @brief Function from Lab 5, delays by a specified amount
@@ -142,10 +143,10 @@ double adjustSteering(line_stats_t line_stats, pid_values_t pid_params){
     
     
     // Prevent control loop from exceeding servo range
-    if (servo_position < SHARP_RIGHT)
-        servo_position = SHARP_RIGHT;
-    else if (SHARP_LEFT < servo_position)
-        servo_position = SHARP_LEFT;
+    if (servo_position < FULL_RIGHT)
+        servo_position = FULL_RIGHT;
+    else if (FULL_LEFT < servo_position)
+        servo_position = FULL_LEFT;
 
     servo_position = SteeringPID(pid_params, 0.075, servo_position);
     TIMER_A2_PWM_DutyCycle(servo_position, 1);  // set new servo position
@@ -192,7 +193,7 @@ void initDriving(void){
 /**
  * @brief Adjusts speed of DC Motors based on turn angle
  */
-double adjustDriving(line_stats_t line_stats, pid_values_t pid_params, double current_speed, speed_settings settings){
+double adjustDriving(line_stats_t line_stats, pid_values_t pid_params, double current_speed){
     uint16_t left_amt, right_amt;
     int left_line_index, right_line_index;
     int track_midpoint_idx;
@@ -227,21 +228,21 @@ double adjustDriving(line_stats_t line_stats, pid_values_t pid_params, double cu
         }
 
         if (delta < 7){
-            new_speed = DrivingPID(pid_params, settings.straight_speed, current_speed);
+            new_speed = DrivingPID(pid_params, STRAIGHTS_SPEED, current_speed);
 
             TIMER_A0_PWM_DutyCycle(new_speed/100.0, LEFT_MOTOR);
             TIMER_A0_PWM_DutyCycle(new_speed/100.0, RIGHT_MOTOR);
         }
         else {
-            new_speed = DrivingPID(pid_params, settings.corner_speed, current_speed);
+            new_speed = DrivingPID(pid_params, CORNERING_SPEED, current_speed);
 
             if (track_midpoint_idx < 64){                                           // Making a left turn
-                TIMER_A0_PWM_DutyCycle((new_speed - (settings.inner_wheel_slowdown + 2.0))/100.0, LEFT_MOTOR);                            // Inner wheel
+                TIMER_A0_PWM_DutyCycle((new_speed - (INNER_WHEEL_SLOWDOWN + 2.0))/100.0, LEFT_MOTOR);                            // Inner wheel
                 TIMER_A0_PWM_DutyCycle((new_speed+1.0)/100.0, RIGHT_MOTOR);   // Outer wheel
             }
             else {                                                                  // Making a right turn
                 TIMER_A0_PWM_DutyCycle((new_speed)/100.0, LEFT_MOTOR);    // Outer wheel
-                TIMER_A0_PWM_DutyCycle((new_speed - settings.inner_wheel_slowdown)/100.0, RIGHT_MOTOR);                           // Inner wheel
+                TIMER_A0_PWM_DutyCycle((new_speed - INNER_WHEEL_SLOWDOWN)/100.0, RIGHT_MOTOR);                           // Inner wheel
             }
         }
 
@@ -331,10 +332,11 @@ void init(void){
 int main(void){
     line_stats_t line_statistics;   // stats of camera data
     int track_loss_counter = 0;     // off track counter
-    double servo_position;          // current position of servo
+    double servo_position = 0.075;  // current position of servo
     double motor_speed = 20.0;
+    enum raceMode{Jog, Run, Sprint} raceMode;
 
-    // Set PID variables to recommended starting points from the Control Systems lecture slides
+    // PID variables for performance tuning
     pid_values_t steering_pid = {0.13, 0.05, 0.0};
     pid_values_t driving_pid = {0.1, 0.05, 0.0};
 
@@ -346,56 +348,45 @@ int main(void){
     running = FALSE;
 
 
-    for (;;){
-        /**
+    /**
      * On switch 1 press: cycle through race modes (Red, Green, Blue)
      *
      * When switch 2 is pressed,
      * turn running on and select that mode
      * turn LED off
      */
+    raceMode = Sprint;  //  Jog will show up as first race mode
 
-        enum raceMode{Jog, Run, Sprint} raceMode;
-        raceMode = Sprint;  //  Jog will show up as first race mode
-        // start with sprint speed settings
-        speed_settings speedSettings = {38.0, 35.0, 6.0};
-
-        for (;;){
-            if (Switch1_Pressed()){
-                raceMode++;
-                switch (raceMode) {
-                    case Jog:
-                        LED2_Red();
-                        speedSettings.straight_speed = 30.0;
-                        speedSettings.corner_speed = 27.0;
-                        speedSettings.inner_wheel_slowdown = 4.0;
-                        break;
-                    case Run:
-                        LED2_Green();
-                        // TODO: this is ugly but I don't know how to do reassignment like above
-                        speedSettings.straight_speed = 32.0;
-                        speedSettings.corner_speed = 29.0;
-                        speedSettings.inner_wheel_slowdown = 5.0;
-
-                        break;
-                    case Sprint:
-                        LED2_Blue();
-                        speedSettings.straight_speed = 38.0;
-                        speedSettings.corner_speed = 35.0;
-                        speedSettings.inner_wheel_slowdown = 6.0;
-
-                        break;
-                    default:
-                        LED2_Off();
-                        break;
-                }
-            }
-            if (Switch2_Pressed()){
-                LED2_Off();
-                running = TRUE;
-                break;
+    for (;;){
+        if (Switch1_Pressed()){
+            raceMode++;
+            switch (raceMode) {
+                case Jog:
+                    LED2_Red();
+                    break;
+                case Run:
+                    LED2_Green();
+                    break;
+                case Sprint:
+                    LED2_Blue();
+                    break;
+                default:
+                    LED2_Off();
+                    break;
             }
         }
+        if (Switch2_Pressed()){
+            LED2_Off();
+            running = TRUE;
+            // TODO: assign the values related to the race mode here
+            //  might be better to handle that above in the switch statement??
+            break;
+        }
+    }
+
+    for (;;){
+
+
         
         #ifdef USE_UART
             //if (uart2_dataAvailable() == TRUE)
@@ -410,13 +401,13 @@ int main(void){
         servo_position = adjustSteering(line_statistics, steering_pid);
         
         /* Adjust DC Motor speed */
-        motor_speed = adjustDriving(line_statistics, driving_pid, motor_speed, speedSettings);
+        motor_speed = adjustDriving(line_statistics, driving_pid, motor_speed);
 
         #ifdef USE_UART
-            //sprintf(uart_buffer, "servo: %g;  left line idx:  %d;  right line idx:  %d;\n\r", servo_position, line_statistics.left_slope_index, line_statistics.right_slope_index);
-            sprintf(uart_buffer, "%g   %g   %g    %g\r\n", DRIVING_ERROR_HISTORY[0], DRIVING_ERROR_HISTORY[1], DRIVING_ERROR_HISTORY[2], motor_speed);
-            uart0_put(uart_buffer);
-            //uart2_put(uart_buffer);
+            //sprintf(uart_tx_buffer, "servo: %g;  left line idx:  %d;  right line idx:  %d;\n\r", servo_position, line_statistics.left_slope_index, line_statistics.right_slope_index);
+            sprintf(uart_tx_buffer, "%g   %g   %g    %g\r\n", DRIVING_ERROR_HISTORY[0], DRIVING_ERROR_HISTORY[1], DRIVING_ERROR_HISTORY[2], motor_speed);
+            uart0_put(uart_tx_buffer);
+            //uart2_put(uart_tx_buffer);
         #endif
 
         /* Check for track loss or intersection */

@@ -1,5 +1,3 @@
-#include <stdlib.h>
-#include <stdint.h>
 #ifndef _STEERING_PID_
 #define _STEERING_PID_
 #endif
@@ -18,7 +16,6 @@ typedef struct pid_values {
     float kd;
 } pid_values_t;
 
-double Integrate(double* previous_values);
 double GenericPID(pid_values_t pid_params, double target, double setpoint, double error_terms [HISTORY_LENGTH]);
 double SteeringPID(pid_values_t pid_params, double desired, double actual);
 double DrivingPID(pid_values_t pid_params, double desired, double actual);

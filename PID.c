@@ -6,21 +6,6 @@
 extern double STEERING_ERROR_HISTORY[HISTORY_LENGTH];
 extern double DRIVING_ERROR_HISTORY[HISTORY_LENGTH];
 
-/**
- * @brief Integrates via trapezoid rule
- * 
- */
-double Integrate(double previous_values [HISTORY_LENGTH]){
-    int i = 0;
-    double accum = 0.0;
-
-    for(i = 0; i < HISTORY_LENGTH; i++)
-        accum += previous_values[i];
-
-    accum = accum / (double)HISTORY_LENGTH;
-
-    return accum;
-}
 
 double GenericPID(pid_values_t pid_params, double desired, double actual, double* error_terms){
     double error;
