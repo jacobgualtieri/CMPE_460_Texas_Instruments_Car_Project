@@ -32,8 +32,6 @@
 
 /* Servo Positions */
 #define CENTER_POSITION 0.075   //  Center position of servo
-#define SHARP_RIGHT     0.05    //  .005 from slight left
-#define SHARP_LEFT      0.11    //  .005 from slight right
 
 /* Directional Thresholds */
 #define RIGHT_IDX_OFFSET 2  //  Shift used to account for camera mounting
@@ -53,10 +51,18 @@
 /* Track Loss Limit */
 #define TRACK_LOSS_LIMIT 3  // Stop limit if off track
 
+
 // line stores the current array of camera data
-extern unsigned char OLED_clr_data[1024];
-extern unsigned char OLED_TEXT_ARR[1024];
-extern unsigned char OLED_GRAPH_ARR[1024];
+#ifdef USE_OLED
+    extern unsigned char OLED_clr_data[1024];
+    extern unsigned char OLED_TEXT_ARR[1024];
+    extern unsigned char OLED_GRAPH_ARR[1024];
+#endif
+
+#ifdef USE_UART
+    char uart_tx_buffer [20];
+    char uart_rx_buffer [UART2_RX_BUFFER_LENGTH];
+#endif
 
 /* Servo Position History Array */
 double STEERING_ERROR_HISTORY[HISTORY_LENGTH] = {0.0, 0.0, 0.0};
@@ -67,10 +73,6 @@ uint16_t smoothed_line[128];    // 5-point average of raw data
 BOOLEAN g_sendData;             // TRUE if camera data is ready to read
 BOOLEAN running = FALSE;        // Driving control variable
 
-#ifdef USE_UART
-    char uart_buffer [20];
-    char uart_rx_buffer [UART2_RX_BUFFER_LENGTH];
-#endif
 
 /**
  * @brief Function from Lab 5, delays by a specified amount
@@ -141,10 +143,10 @@ double adjustSteering(line_stats_t line_stats, pid_values_t pid_params){
     
     
     // Prevent control loop from exceeding servo range
-    if (servo_position < SHARP_RIGHT)
-        servo_position = SHARP_RIGHT;
-    else if (SHARP_LEFT < servo_position)
-        servo_position = SHARP_LEFT;
+    if (servo_position < FULL_RIGHT)
+        servo_position = FULL_RIGHT;
+    else if (FULL_LEFT < servo_position)
+        servo_position = FULL_LEFT;
 
     servo_position = SteeringPID(pid_params, 0.075, servo_position);
     TIMER_A2_PWM_DutyCycle(servo_position, 1);  // set new servo position
@@ -330,10 +332,11 @@ void init(void){
 int main(void){
     line_stats_t line_statistics;   // stats of camera data
     int track_loss_counter = 0;     // off track counter
-    double servo_position;          // current position of servo
+    double servo_position = 0.075;  // current position of servo
     double motor_speed = 20.0;
+    enum raceMode{Jog, Run, Sprint} raceMode;
 
-    // Set PID variables to recommended starting points from the Control Systems lecture slides
+    // PID variables for performance tuning
     pid_values_t steering_pid = {0.13, 0.05, 0.0};
     pid_values_t driving_pid = {0.1, 0.05, 0.0};
 
@@ -343,6 +346,8 @@ int main(void){
     /* Begin Infinite Loop */
     EnableInterrupts();
     running = FALSE;
+
+
     /**
      * On switch 1 press: cycle through race modes (Red, Green, Blue)
      *
@@ -350,8 +355,6 @@ int main(void){
      * turn running on and select that mode
      * turn LED off
      */
-
-    enum raceMode{Jog, Run, Sprint} raceMode;
     raceMode = Sprint;  //  Jog will show up as first race mode
 
     for (;;){
@@ -401,10 +404,10 @@ int main(void){
         motor_speed = adjustDriving(line_statistics, driving_pid, motor_speed);
 
         #ifdef USE_UART
-            //sprintf(uart_buffer, "servo: %g;  left line idx:  %d;  right line idx:  %d;\n\r", servo_position, line_statistics.left_slope_index, line_statistics.right_slope_index);
-            sprintf(uart_buffer, "%g   %g   %g    %g\r\n", DRIVING_ERROR_HISTORY[0], DRIVING_ERROR_HISTORY[1], DRIVING_ERROR_HISTORY[2], motor_speed);
-            uart0_put(uart_buffer);
-            //uart2_put(uart_buffer);
+            //sprintf(uart_tx_buffer, "servo: %g;  left line idx:  %d;  right line idx:  %d;\n\r", servo_position, line_statistics.left_slope_index, line_statistics.right_slope_index);
+            sprintf(uart_tx_buffer, "%g   %g   %g    %g\r\n", DRIVING_ERROR_HISTORY[0], DRIVING_ERROR_HISTORY[1], DRIVING_ERROR_HISTORY[2], motor_speed);
+            uart0_put(uart_tx_buffer);
+            //uart2_put(uart_tx_buffer);
         #endif
 
         /* Check for track loss or intersection */
