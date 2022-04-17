@@ -1,6 +1,8 @@
 #include "PID.h"
 #include "leds.h"
 
+//#define DEBUG_LEDS
+
 extern double STEERING_ERROR_HISTORY[HISTORY_LENGTH];
 extern double DRIVING_ERROR_HISTORY[HISTORY_LENGTH];
 
@@ -20,7 +22,7 @@ double Integrate(double previous_values [HISTORY_LENGTH]){
     return accum;
 }
 
-double GenericPID(pid_values_t pid_params, double desired, double actual, double error_terms [HISTORY_LENGTH]){
+double GenericPID(pid_values_t pid_params, double desired, double actual, double* error_terms){
     double error;
     double proportional_gain;
     double integral_gain;
@@ -74,21 +76,23 @@ double SteeringPID(pid_values_t pid_params, double desired, double actual){
     }
 
     /* LED stuff for debugging */
-    if (new_servo_position < 0.059){
-        LED2_Red();
-    }
-    else if (new_servo_position < 0.070){
-        LED2_Magenta();
-    }
-    else if ((0.08 < new_servo_position) && (new_servo_position <= 0.085)){
-        LED2_Cyan();
-    }
-    else if (0.085 < new_servo_position){
-        LED2_Blue();
-    }
-    else {
-        LED2_Off();
-    }
+    #ifdef DEBUG_LEDS
+        if (new_servo_position < 0.059){
+            LED2_Red();
+        }
+        else if (new_servo_position < 0.070){
+            LED2_Magenta();
+        }
+        else if ((0.08 < new_servo_position) && (new_servo_position <= 0.085)){
+            LED2_Cyan();
+        }
+        else if (0.085 < new_servo_position){
+            LED2_Blue();
+        }
+        else {
+            LED2_Off();
+        }
+    #endif
 
     return new_servo_position;
 }
