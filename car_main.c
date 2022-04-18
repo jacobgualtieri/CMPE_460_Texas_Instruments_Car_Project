@@ -57,6 +57,7 @@ typedef struct speed_settings {
 /* Track Loss Limit */
 #define TRACK_LOSS_LIMIT 3  // Stop limit if off track
 
+
 // line stores the current array of camera data
 #ifdef USE_OLED
     extern unsigned char OLED_clr_data[1024];
@@ -337,7 +338,7 @@ void init(void){
 int main(void){
     line_stats_t line_statistics;   // stats of camera data
     int track_loss_counter = 0;     // off track counter
-    double servo_position;          // current position of servo
+    double servo_position = 0.075;  // current position of servo
     double motor_speed = 20.0;
     enum raceMode{Jog, Run, Sprint} raceMode;
 
@@ -361,7 +362,7 @@ int main(void){
      * turn LED off
      */
 
-        enum raceMode{Jog, Run, Sprint} raceMode;
+
         raceMode = Sprint;  //  Jog will show up as first race mode
         // start with sprint speed settings
         speed_settings speedSettings = {38.0, 35.0, 6.0};
