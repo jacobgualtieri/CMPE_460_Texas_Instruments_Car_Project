@@ -341,6 +341,8 @@ int main(void){
     double servo_position = 0.075;  // current position of servo
     double motor_speed = 20.0;
     enum raceMode{Jog, Run, Sprint} raceMode;
+    // start with sprint speed settings
+    speed_settings speedSettings = {38.0, 35.0, 6.0};
 
     // PID variables for performance tuning
     pid_values_t steering_pid = {0.13, 0.05, 0.0};
@@ -361,48 +363,46 @@ int main(void){
      * turn running on and select that mode
      * turn LED off
      */
+    raceMode = Sprint;  //  Jog will show up as first race mode
 
+    for (;;){
+        if (Switch1_Pressed()){
+            raceMode++;
+            switch (raceMode) {
+                case Jog:
+                    LED2_Red();
+                    speedSettings.straight_speed = 30.0;
+                    speedSettings.corner_speed = 27.0;
+                    speedSettings.inner_wheel_slowdown = 4.0;
+                    break;
+                case Run:
+                    LED2_Green();
+                    // TODO: this is ugly but I don't know how to do reassignment like above
+                    speedSettings.straight_speed = 32.0;
+                    speedSettings.corner_speed = 29.0;
+                    speedSettings.inner_wheel_slowdown = 5.0;
 
-        raceMode = Sprint;  //  Jog will show up as first race mode
-        // start with sprint speed settings
-        speed_settings speedSettings = {38.0, 35.0, 6.0};
+                    break;
+                case Sprint:
+                    LED2_Blue();
+                    speedSettings.straight_speed = 38.0;
+                    speedSettings.corner_speed = 35.0;
+                    speedSettings.inner_wheel_slowdown = 6.0;
 
-        for (;;){
-            if (Switch1_Pressed()){
-                raceMode++;
-                switch (raceMode) {
-                    case Jog:
-                        LED2_Red();
-                        speedSettings.straight_speed = 30.0;
-                        speedSettings.corner_speed = 27.0;
-                        speedSettings.inner_wheel_slowdown = 4.0;
-                        break;
-                    case Run:
-                        LED2_Green();
-                        // TODO: this is ugly but I don't know how to do reassignment like above
-                        speedSettings.straight_speed = 32.0;
-                        speedSettings.corner_speed = 29.0;
-                        speedSettings.inner_wheel_slowdown = 5.0;
-
-                        break;
-                    case Sprint:
-                        LED2_Blue();
-                        speedSettings.straight_speed = 38.0;
-                        speedSettings.corner_speed = 35.0;
-                        speedSettings.inner_wheel_slowdown = 6.0;
-
-                        break;
-                    default:
-                        LED2_Off();
-                        break;
-                }
-            }
-            if (Switch2_Pressed()){
-                LED2_Off();
-                running = TRUE;
-                break;
+                    break;
+                default:
+                    LED2_Off();
+                    break;
             }
         }
+        if (Switch2_Pressed()){
+            LED2_Off();
+            running = TRUE;
+            break;
+        }
+    }
+    
+    for (;;){
         
         #ifdef USE_UART
             //if (uart2_dataAvailable() == TRUE)
