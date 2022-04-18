@@ -340,7 +340,7 @@ int main(void){
     int track_loss_counter = 0;     // off track counter
     double servo_position = 0.075;  // current position of servo
     double motor_speed = 20.0;
-    enum raceMode{Jog, Run, Sprint} raceMode;
+    enum raceMode{Jog = 0, Run = 1, Sprint = 2} raceMode;
     // start with sprint speed settings
     speed_settings speedSettings = {38.0, 35.0, 6.0};
 
@@ -364,10 +364,15 @@ int main(void){
      * turn LED off
      */
     raceMode = Sprint;  //  Jog will show up as first race mode
+    LED2_Off();
 
     for (;;){
         if (Switch1_Pressed()){
+            
             raceMode++;
+            if (raceMode > 2)
+                raceMode = Jog;
+            
             switch (raceMode) {
                 case Jog:
                     LED2_Red();
@@ -394,8 +399,10 @@ int main(void){
                     LED2_Off();
                     break;
             }
+            
+            while(Switch1_Pressed()){}
         }
-        if (Switch2_Pressed()){
+        else if (Switch2_Pressed()){
             LED2_Off();
             running = TRUE;
             break;
