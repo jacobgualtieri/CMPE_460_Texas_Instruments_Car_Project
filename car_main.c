@@ -42,12 +42,6 @@
 #define CORNERING_SPEED     27.0    //  desired speed in the corner
 #define INNER_WHEEL_SLOWDOWN 6.0    //  decrease factor for inner wheel on turns
 
-typedef struct speed_settings {
-    double straight_speed;
-    double corner_speed;
-    double inner_wheel_slowdown;
-} speed_settings;
-
 /* DC Motor Settings */
 // 3 and 4 motor goes' fwd
 // FORWARD: LEFT <= 3, RIGHT <= 4
@@ -57,8 +51,6 @@ typedef struct speed_settings {
 /* Track Loss Limit */
 #define TRACK_LOSS_LIMIT 3  // Stop limit if off track
 
-
-// line stores the current array of camera data
 #ifdef USE_OLED
     extern unsigned char OLED_clr_data[1024];
     extern unsigned char OLED_TEXT_ARR[1024];
@@ -74,10 +66,17 @@ typedef struct speed_settings {
 double STEERING_ERROR_HISTORY[HISTORY_LENGTH] = {0.0, 0.0, 0.0};
 double DRIVING_ERROR_HISTORY[HISTORY_LENGTH] = {0.0, 0.0, 0.0};
 
+/* line stores the current array of camera data */
 uint16_t line[128];             // raw camera data
 uint16_t smoothed_line[128];    // 5-point average of raw data
 BOOLEAN g_sendData;             // TRUE if camera data is ready to read
 BOOLEAN running = FALSE;        // Driving control variable
+
+typedef struct speed_settings {
+    double straight_speed;
+    double corner_speed;
+    double inner_wheel_slowdown;
+} speed_settings;
 
 
 /**
@@ -117,25 +116,7 @@ double adjustSteering(center_of_mass_t line_stats, pid_values_t pid_params){
     int track_midpoint_idx;
     int delta;
 
-    // right_line_index = line_stats.right_slope_index + RIGHT_IDX_OFFSET;
-    // left_line_index = line_stats.left_slope_index;
-    // right_amt = -1 * line_stats.right_slope_amount;
-    // left_amt = line_stats.left_slope_amount;
-
     track_midpoint_idx = line_stats.x;
-    
-    // if (right_line_index < left_line_index){    // Error case
-    //     if (left_amt < right_amt){
-    //         // Turn Left
-    //         track_midpoint_idx = MIDPOINT(0, right_line_index);
-    //         delta = 64-track_midpoint_idx;
-    //     }
-    //     else {
-    //         // Turn Right
-    //         track_midpoint_idx = MIDPOINT(left_line_index, 127);
-    //         delta = track_midpoint_idx - 64;
-    //     }
-    // }
 
     delta = 64-track_midpoint_idx;
 
@@ -147,14 +128,13 @@ double adjustSteering(center_of_mass_t line_stats, pid_values_t pid_params){
     else
         servo_position = CENTER_POSITION + (((double)delta / 64.0) * CENTER_POSITION);
     
-    
     // Prevent control loop from exceeding servo range
     if (servo_position < FULL_RIGHT)
         servo_position = FULL_RIGHT;
     else if (FULL_LEFT < servo_position)
         servo_position = FULL_LEFT;
 
-    servo_position = SteeringPID(pid_params, 0.075, servo_position);
+    servo_position = SteeringPID(pid_params, CENTER_POSITION, servo_position);
     TIMER_A2_PWM_DutyCycle(servo_position, 1);  // set new servo position
     
     return servo_position;
@@ -205,10 +185,6 @@ double adjustDriving(center_of_mass_t line_stats, pid_values_t pid_params, doubl
     double new_speed = 0.0;
 
     if (running){
-        // right_line_index = line_stats.right_slope_index;
-        // left_line_index = line_stats.left_slope_index;
-        // right_amt = -1 * line_stats.right_slope_amount;
-        // left_amt = line_stats.left_slope_amount;
 
         track_midpoint_idx = line_stats.x;
 
@@ -216,27 +192,6 @@ double adjustDriving(center_of_mass_t line_stats, pid_values_t pid_params, doubl
             delta = 64-track_midpoint_idx;
         else
             delta = track_midpoint_idx - 64;
-
-        // if (right_line_index < left_line_index){    // error case
-        //     if (left_amt < right_amt){
-        //         // Turn left
-        //         track_midpoint_idx = MIDPOINT(0, right_line_index);
-        //         delta = 64-track_midpoint_idx;
-        //     }
-        //     else {
-        //         // Turn Right
-        //         track_midpoint_idx = MIDPOINT(left_line_index, 127);
-        //         delta = track_midpoint_idx - 64;
-        //     }
-        // }                                           // normal cases
-        // else {
-        //     track_midpoint_idx = MIDPOINT(left_line_index, right_line_index);
-
-        //     if (track_midpoint_idx < 64)
-        //         delta = 64-track_midpoint_idx;
-        //     else
-        //         delta = track_midpoint_idx - 64;
-        // }
 
         if (delta < 4){ // TODO: Tune width of straight
             new_speed = DrivingPID(pid_params, settings.straight_speed, current_speed);
@@ -274,14 +229,12 @@ double adjustDriving(center_of_mass_t line_stats, pid_values_t pid_params, doubl
  */
 center_of_mass_t parseCameraData(uint16_t* raw_camera_data, uint16_t* smoothed_camera_data){
     center_of_mass_t line_stats;
-    //unsigned int temp;
     
     if (g_sendData == TRUE){
         LED1_On();
 
         MovingAverage(raw_camera_data, smoothed_camera_data); // smooth raw data
         FindCenterOfMass(smoothed_camera_data, &line_stats);
-        //slope_finder(smoothed_camera_data, &line_stats);   // get values for stats using derivative
 
         // render camera data onto the OLED display
         #ifdef USE_OLED
@@ -424,12 +377,6 @@ int main(void){
     
     for (;;){
         
-        #ifdef USE_UART
-            //if (uart2_dataAvailable() == TRUE)
-            //parseUartCmd(&steering_pid, &driving_pid);
-        #endif
-
-
         /* Read camera data */
         line_statistics = parseCameraData(line, smoothed_line);
 
@@ -439,13 +386,6 @@ int main(void){
         /* Adjust DC Motor speed */
         motor_speed = adjustDriving(line_statistics, driving_pid, motor_speed, speedSettings);
 
-        #ifdef USE_UART
-            //sprintf(uart_tx_buffer, "servo: %g;  left line idx:  %d;  right line idx:  %d;\n\r", servo_position, line_statistics.left_slope_index, line_statistics.right_slope_index);
-            sprintf(uart_tx_buffer, "Center of Mass:   %u,    Y = %u\n\r", line_statistics.x, line_statistics.y);
-            uart2_put(uart_tx_buffer);
-            //uart2_put(uart_tx_buffer);
-        #endif
-
         /* Check for track loss or intersection */
         if (isOffTrack(line_statistics.y))
             track_loss_counter += 1;    //  if off track, increment counter
@@ -454,6 +394,13 @@ int main(void){
 
         /* Carpet detection reached limit */
         if (track_loss_counter > TRACK_LOSS_LIMIT){ running = FALSE; }
+
+        #ifdef USE_UART
+            //sprintf(uart_tx_buffer, "servo: %g;  left line idx:  %d;  right line idx:  %d;\n\r", servo_position, line_statistics.left_slope_index, line_statistics.right_slope_index);
+            sprintf(uart_tx_buffer, "Center of Mass:   %u,    Y = %u\n\r", line_statistics.x, line_statistics.y);
+            uart2_put(uart_tx_buffer);
+            //uart2_put(uart_tx_buffer);
+        #endif
 
 		/* Do a small delay */
 		msdelay(10);

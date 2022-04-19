@@ -69,50 +69,6 @@ void FindCenterOfMass(uint16_t* smoothed_line, center_of_mass_t* stat_collection
 }
 
 /**
- * @brief finds the indexes of the left and right lines of the "track"
- * from the camera data
- *
- * @param line_data smoothed camera data
- * @param stat_collection contains values and indexes of the max and min
- * values of the derivative (slope) of the input data
- */
-// void slope_finder(uint16_t* line_data, line_stats_t* stat_collection){
-//     int j;      // counter
-//     int dy;     // delta y, or slope between two points
-//     int max_dy = 0;     // max slope (largest positive slope value)
-//     int max_idx = 0;    // index of max slope
-//     int min_dy = 0;     // min slope (smallest negative slope value)
-//     int min_idx = 0;    // index of min slope
-
-//     for (j = 0; j < 127; j++){
-
-//         dy = line_data[j+1] - line_data[j]; // calculate slope = ( [j+1] - [j] ) / 1
-
-//         if (max_dy < dy){   // update max values
-//             max_dy = dy;
-//             max_idx = j;
-//         } else {
-//             max_dy = max_dy;
-//             max_idx = max_idx;
-//         }
-
-//         if (dy < min_dy){   // update min values
-//             min_dy = dy;
-//             min_idx = j;
-//         } else {
-//             min_dy = min_dy;
-//             min_idx = min_idx;
-//         }
-//     }
-
-//     // save results to line_stats struct
-//     stat_collection->right_slope_index = min_idx;
-//     stat_collection->right_slope_amount = min_dy;
-//     stat_collection->left_slope_index = max_idx;
-//     stat_collection->left_slope_amount = max_dy;
-// }
-
-/**
  * @brief Calculates the 5-point moving average of the camera line data
  * and determines the maximum value detected by the camera
  * 
