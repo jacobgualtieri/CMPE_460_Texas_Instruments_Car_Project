@@ -35,12 +35,12 @@
 
 /* Directional Thresholds */
 #define RIGHT_IDX_OFFSET 2  //  Shift used to account for camera mounting
-#define MIDPOINT_OFFSET 0
+#define LEFT_TURN_OFFSET 3
 
 /* Speed Settings */
 #define STRAIGHTS_SPEED     30.0    //  desired speed in the straight
 #define CORNERING_SPEED     27.0    //  desired speed in the corner
-#define INNER_WHEEL_SLOWDOWN 4.0    //  decrease factor for inner wheel on turns
+#define INNER_WHEEL_SLOWDOWN 6.0    //  decrease factor for inner wheel on turns
 
 typedef struct speed_settings {
     double straight_speed;
@@ -112,35 +112,35 @@ void initSteering(void){
  * values of the derivative (slope) of the input data
  * @return new servo position
  */
-double adjustSteering(line_stats_t line_stats, pid_values_t pid_params){
+double adjustSteering(center_of_mass_t line_stats, pid_values_t pid_params){
     double servo_position;
-    uint16_t left_amt, right_amt;
-    int left_line_index, right_line_index;
     int track_midpoint_idx;
     int delta;
 
-    right_line_index = line_stats.right_slope_index + RIGHT_IDX_OFFSET;
-    left_line_index = line_stats.left_slope_index;
-    right_amt = -1 * line_stats.right_slope_amount;
-    left_amt = line_stats.left_slope_amount;
+    // right_line_index = line_stats.right_slope_index + RIGHT_IDX_OFFSET;
+    // left_line_index = line_stats.left_slope_index;
+    // right_amt = -1 * line_stats.right_slope_amount;
+    // left_amt = line_stats.left_slope_amount;
+
+    track_midpoint_idx = line_stats.x;
     
-    if (right_line_index < left_line_index){    // Error case
-        if (left_amt < right_amt){
-            // Turn Left
-            track_midpoint_idx = MIDPOINT(0, right_line_index);
-            delta = 64-track_midpoint_idx;
-        }
-        else {
-            // Turn Right
-            track_midpoint_idx = MIDPOINT(left_line_index, 127);
-            delta = track_midpoint_idx - 64;
-        }
-    }
-    else {  // Normal cases
-        track_midpoint_idx = MIDPOINT(left_line_index, right_line_index) - MIDPOINT_OFFSET;
-        delta = 64-track_midpoint_idx;
-    }
-    
+    // if (right_line_index < left_line_index){    // Error case
+    //     if (left_amt < right_amt){
+    //         // Turn Left
+    //         track_midpoint_idx = MIDPOINT(0, right_line_index);
+    //         delta = 64-track_midpoint_idx;
+    //     }
+    //     else {
+    //         // Turn Right
+    //         track_midpoint_idx = MIDPOINT(left_line_index, 127);
+    //         delta = track_midpoint_idx - 64;
+    //     }
+    // }
+
+    delta = 64-track_midpoint_idx;
+
+    if (delta > 0)
+        delta += LEFT_TURN_OFFSET;
     
     if (delta == 0)
         servo_position = CENTER_POSITION;
@@ -199,41 +199,46 @@ void initDriving(void){
 /**
  * @brief Adjusts speed of DC Motors based on turn angle
  */
-double adjustDriving(line_stats_t line_stats, pid_values_t pid_params, double current_speed, speed_settings settings){
-    uint16_t left_amt, right_amt;
-    int left_line_index, right_line_index;
+double adjustDriving(center_of_mass_t line_stats, pid_values_t pid_params, double current_speed, speed_settings settings){
     int track_midpoint_idx;
     int delta;
     double new_speed = 0.0;
 
     if (running){
-        right_line_index = line_stats.right_slope_index;
-        left_line_index = line_stats.left_slope_index;
-        right_amt = -1 * line_stats.right_slope_amount;
-        left_amt = line_stats.left_slope_amount;
+        // right_line_index = line_stats.right_slope_index;
+        // left_line_index = line_stats.left_slope_index;
+        // right_amt = -1 * line_stats.right_slope_amount;
+        // left_amt = line_stats.left_slope_amount;
 
-        if (right_line_index < left_line_index){    // error case
-            if (left_amt < right_amt){
-                // Turn left
-                track_midpoint_idx = MIDPOINT(0, right_line_index);
-                delta = 64-track_midpoint_idx;
-            }
-            else {
-                // Turn Right
-                track_midpoint_idx = MIDPOINT(left_line_index, 127);
-                delta = track_midpoint_idx - 64;
-            }
-        }                                           // normal cases
-        else {
-            track_midpoint_idx = MIDPOINT(left_line_index, right_line_index);
+        track_midpoint_idx = line_stats.x;
 
-            if (track_midpoint_idx < 64)
-                delta = 64-track_midpoint_idx;
-            else
-                delta = track_midpoint_idx - 64;
-        }
+        if (track_midpoint_idx < 64)
+            delta = 64-track_midpoint_idx;
+        else
+            delta = track_midpoint_idx - 64;
 
-        if (delta < 7){
+        // if (right_line_index < left_line_index){    // error case
+        //     if (left_amt < right_amt){
+        //         // Turn left
+        //         track_midpoint_idx = MIDPOINT(0, right_line_index);
+        //         delta = 64-track_midpoint_idx;
+        //     }
+        //     else {
+        //         // Turn Right
+        //         track_midpoint_idx = MIDPOINT(left_line_index, 127);
+        //         delta = track_midpoint_idx - 64;
+        //     }
+        // }                                           // normal cases
+        // else {
+        //     track_midpoint_idx = MIDPOINT(left_line_index, right_line_index);
+
+        //     if (track_midpoint_idx < 64)
+        //         delta = 64-track_midpoint_idx;
+        //     else
+        //         delta = track_midpoint_idx - 64;
+        // }
+
+        if (delta < 4){ // TODO: Tune width of straight
             new_speed = DrivingPID(pid_params, settings.straight_speed, current_speed);
 
             TIMER_A0_PWM_DutyCycle(new_speed/100.0, LEFT_MOTOR);
@@ -242,13 +247,13 @@ double adjustDriving(line_stats_t line_stats, pid_values_t pid_params, double cu
         else {
             new_speed = DrivingPID(pid_params, settings.corner_speed, current_speed);
 
-            if (track_midpoint_idx < 64){                                           // Making a left turn
-                TIMER_A0_PWM_DutyCycle((new_speed - (settings.inner_wheel_slowdown + 2.0))/100.0, LEFT_MOTOR);                            // Inner wheel
+            if (track_midpoint_idx < 64){                                     // Making a left turn
+                TIMER_A0_PWM_DutyCycle((new_speed - settings.inner_wheel_slowdown)/100.0, LEFT_MOTOR);  // Inner wheel
                 TIMER_A0_PWM_DutyCycle((new_speed+1.0)/100.0, RIGHT_MOTOR);   // Outer wheel
             }
-            else {                                                                  // Making a right turn
-                TIMER_A0_PWM_DutyCycle((new_speed)/100.0, LEFT_MOTOR);    // Outer wheel
-                TIMER_A0_PWM_DutyCycle((new_speed - settings.inner_wheel_slowdown)/100.0, RIGHT_MOTOR);                           // Inner wheel
+            else {                                                            // Making a right turn
+                TIMER_A0_PWM_DutyCycle((new_speed+1.0)/100.0, LEFT_MOTOR);    // Outer wheel
+                TIMER_A0_PWM_DutyCycle((new_speed - settings.inner_wheel_slowdown)/100.0, RIGHT_MOTOR); // Inner wheel
             }
         }
 
@@ -267,14 +272,16 @@ double adjustDriving(line_stats_t line_stats, pid_values_t pid_params, double cu
  * @param smoothed_camera_data smoothed camera data
  * @return stats containing max and min indexes and values of the slope
  */
-line_stats_t parseCameraData(uint16_t* raw_camera_data, uint16_t* smoothed_camera_data){
-    line_stats_t line_stats;
+center_of_mass_t parseCameraData(uint16_t* raw_camera_data, uint16_t* smoothed_camera_data){
+    center_of_mass_t line_stats;
+    //unsigned int temp;
     
     if (g_sendData == TRUE){
         LED1_On();
 
-        MovingAverage(raw_camera_data, smoothed_camera_data, &line_stats); // smooth raw data
-        slope_finder(smoothed_camera_data, &line_stats);   // get values for stats using derivative
+        MovingAverage(raw_camera_data, smoothed_camera_data); // smooth raw data
+        FindCenterOfMass(smoothed_camera_data, &line_stats);
+        //slope_finder(smoothed_camera_data, &line_stats);   // get values for stats using derivative
 
         // render camera data onto the OLED display
         #ifdef USE_OLED
@@ -296,7 +303,7 @@ line_stats_t parseCameraData(uint16_t* raw_camera_data, uint16_t* smoothed_camer
  * @return TRUE if off track
  */
 BOOLEAN isOffTrack(uint16_t camera_max){
-    if ((10 < camera_max) && (camera_max < 6500)){  // if max val is too low (darkness/carpet)
+    if ((10 < camera_max) && (camera_max < 9000)){  // if max val is too low (darkness/carpet)
         return TRUE;    // car is off track
     }
     else{
@@ -336,16 +343,22 @@ void init(void){
         - May explain why only term[0] gets through
 */
 int main(void){
-    line_stats_t line_statistics;   // stats of camera data
+    center_of_mass_t line_statistics;   // stats of camera data
     int track_loss_counter = 0;     // off track counter
     double servo_position = 0.075;  // current position of servo
     double motor_speed = 20.0;
     enum raceMode{Jog = 0, Run = 1, Sprint = 2} raceMode;
     // start with sprint speed settings
-    speed_settings speedSettings = {38.0, 35.0, 6.0};
+    speed_settings speedSettings;
 
     // PID variables for performance tuning
-    pid_values_t steering_pid = {0.13, 0.05, 0.0};
+    /*
+      Started with on 4/18/22
+      kp = 0.13
+      ki = 0.05
+      kd = 0.0
+    */
+    pid_values_t steering_pid = {0.10, 0.05, 0.05};
     pid_values_t driving_pid = {0.1, 0.05, 0.0};
 
     /* Initializations */
@@ -363,7 +376,7 @@ int main(void){
      * turn running on and select that mode
      * turn LED off
      */
-    raceMode = Sprint;  //  Jog will show up as first race mode
+    raceMode = Jog;  //  Jog will show up as first race mode
     LED2_Off();
 
     for (;;){
@@ -428,13 +441,13 @@ int main(void){
 
         #ifdef USE_UART
             //sprintf(uart_tx_buffer, "servo: %g;  left line idx:  %d;  right line idx:  %d;\n\r", servo_position, line_statistics.left_slope_index, line_statistics.right_slope_index);
-            sprintf(uart_tx_buffer, "%g   %g   %g    %g\r\n", DRIVING_ERROR_HISTORY[0], DRIVING_ERROR_HISTORY[1], DRIVING_ERROR_HISTORY[2], motor_speed);
-            uart0_put(uart_tx_buffer);
+            sprintf(uart_tx_buffer, "Center of Mass:   %u,    Y = %u\n\r", line_statistics.x, line_statistics.y);
+            uart2_put(uart_tx_buffer);
             //uart2_put(uart_tx_buffer);
         #endif
 
         /* Check for track loss or intersection */
-        if (isOffTrack(line_statistics.max))
+        if (isOffTrack(line_statistics.y))
             track_loss_counter += 1;    //  if off track, increment counter
         else
             track_loss_counter = 0;     //  if on track, reset counter to zero
