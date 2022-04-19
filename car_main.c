@@ -249,10 +249,10 @@ double adjustDriving(center_of_mass_t line_stats, pid_values_t pid_params, doubl
 
             if (track_midpoint_idx < 64){                                     // Making a left turn
                 TIMER_A0_PWM_DutyCycle((new_speed - settings.inner_wheel_slowdown)/100.0, LEFT_MOTOR);  // Inner wheel
-                TIMER_A0_PWM_DutyCycle((new_speed+1.0)/100.0, RIGHT_MOTOR);   // Outer wheel
+                TIMER_A0_PWM_DutyCycle((new_speed+2.0)/100.0, RIGHT_MOTOR);   // Outer wheel
             }
             else {                                                            // Making a right turn
-                TIMER_A0_PWM_DutyCycle((new_speed+1.0)/100.0, LEFT_MOTOR);    // Outer wheel
+                TIMER_A0_PWM_DutyCycle((new_speed+2.0)/100.0, LEFT_MOTOR);    // Outer wheel
                 TIMER_A0_PWM_DutyCycle((new_speed - settings.inner_wheel_slowdown)/100.0, RIGHT_MOTOR); // Inner wheel
             }
         }
