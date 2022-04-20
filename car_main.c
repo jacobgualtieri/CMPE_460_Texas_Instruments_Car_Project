@@ -50,6 +50,7 @@
 
 /* Track Loss Limit */
 #define TRACK_LOSS_LIMIT 3  // Stop limit if off track
+#define CARPET_THRESHOLD 9000   // any y value lower than this means the car is off track
 
 #ifdef USE_OLED
     extern unsigned char OLED_clr_data[1024];
@@ -221,6 +222,57 @@ double adjustDriving(center_of_mass_t line_stats, pid_values_t pid_params, doubl
     return new_speed;
 }
 
+double adjustDrivingContinuous(center_of_mass_t line_stats, pid_values_t pid_params, double current_speed, speed_settings settings){
+    int track_midpoint_idx;
+    int delta;
+    double new_speed = 0.0;
+    uint16_t desired;
+
+    if (running){
+
+        track_midpoint_idx = line_stats.x;
+
+
+
+        if (line_stats.y == 16383){
+            desired = settings.straight_speed;  //  set desired speed to max speed
+        }
+        else if (line_stats.y < CARPET_THRESHOLD){
+            desired = settings.corner_speed;
+        }
+        else{
+            desired = (uint16_t)(line_stats.y/16383) * settings.straight_speed;
+        }
+
+        new_speed = DrivingPID(pid_params, desired, current_speed);
+
+
+        if (line_stats.y == 16383){
+            TIMER_A0_PWM_DutyCycle(new_speed/100.0, LEFT_MOTOR);
+            TIMER_A0_PWM_DutyCycle(new_speed/100.0, RIGHT_MOTOR);
+        }
+        else{
+            if (track_midpoint_idx < 64){   //  making a left turn
+                TIMER_A0_PWM_DutyCycle((new_speed - settings.inner_wheel_slowdown)/100.0, LEFT_MOTOR);  // Inner wheel
+                TIMER_A0_PWM_DutyCycle((new_speed+2.0)/100.0, RIGHT_MOTOR);   // Outer wheel
+
+            }
+            else {  //  Making a right turn
+                TIMER_A0_PWM_DutyCycle((new_speed+2.0)/100.0, LEFT_MOTOR);    // Outer wheel
+                TIMER_A0_PWM_DutyCycle((new_speed - settings.inner_wheel_slowdown)/100.0, RIGHT_MOTOR); // Inner wheel
+            }
+        }
+
+    }
+    else {  // not running -> stop driving
+        TIMER_A0_PWM_DutyCycle(0.0, LEFT_MOTOR);
+        TIMER_A0_PWM_DutyCycle(0.0, RIGHT_MOTOR);
+    }
+
+    return new_speed;
+}
+
+
 /**
  * @brief Reads camera data, smooths it, finds max and min slope indexes and values
  * @param raw_camera_data raw camera data
@@ -256,7 +308,7 @@ center_of_mass_t parseCameraData(uint16_t* raw_camera_data, uint16_t* smoothed_c
  * @return TRUE if off track
  */
 BOOLEAN isOffTrack(uint16_t camera_max){
-    if ((10 < camera_max) && (camera_max < 9000)){  // if max val is too low (darkness/carpet)
+    if ((10 < camera_max) && (camera_max < CARPET_THRESHOLD)){  // if max val is too low (darkness/carpet)
         return TRUE;    // car is off track
     }
     else{
