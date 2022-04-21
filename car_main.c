@@ -49,8 +49,8 @@
 #define RIGHT_MOTOR 4
 
 /* Track Loss Limit */
-#define TRACK_LOSS_LIMIT 3  // Stop limit if off track
-#define CARPET_THRESHOLD 9000   // any y value lower than this means the car is off track
+#define TRACK_LOSS_LIMIT 8  // Stop limit if off track
+#define CARPET_THRESHOLD 10500   // any y value lower than this means the car is off track
 
 #ifdef USE_OLED
     extern unsigned char OLED_clr_data[1024];
@@ -77,6 +77,7 @@ typedef struct speed_settings {
     double straight_speed;
     double corner_speed;
     double inner_wheel_slowdown;
+    double max_corner_slowdown;
 } speed_settings;
 
 
@@ -180,85 +181,105 @@ void initDriving(void){
 /**
  * @brief Adjusts speed of DC Motors based on turn angle
  */
-double adjustDriving(center_of_mass_t line_stats, pid_values_t pid_params, double current_speed, speed_settings settings){
-    int track_midpoint_idx;
-    int delta;
-    double new_speed = 0.0;
+//double adjustDriving(center_of_mass_t line_stats, pid_values_t pid_params, double current_speed, speed_settings settings){
+//    int track_midpoint_idx;
+//    int delta;
+//    double new_speed = 0.0;
 
-    if (running){
+//    if (running){
 
-        track_midpoint_idx = line_stats.x;
+//        track_midpoint_idx = line_stats.x;
 
-        if (track_midpoint_idx < 64)
-            delta = 64-track_midpoint_idx;
-        else
-            delta = track_midpoint_idx - 64;
+//        if (track_midpoint_idx < 64)
+//            delta = 64-track_midpoint_idx;
+//        else
+//            delta = track_midpoint_idx - 64;
 
-        if (delta < 4){ // TODO: Tune width of straight
-            new_speed = DrivingPID(pid_params, settings.straight_speed, current_speed);
+//        if (delta < 4){ // TODO: Tune width of straight
+//            new_speed = DrivingPID(pid_params, settings.straight_speed, current_speed);
 
-            TIMER_A0_PWM_DutyCycle(new_speed/100.0, LEFT_MOTOR);
-            TIMER_A0_PWM_DutyCycle(new_speed/100.0, RIGHT_MOTOR);
-        }
-        else {
-            new_speed = DrivingPID(pid_params, settings.corner_speed, current_speed);
+//            TIMER_A0_PWM_DutyCycle(new_speed/100.0, LEFT_MOTOR);
+//            TIMER_A0_PWM_DutyCycle(new_speed/100.0, RIGHT_MOTOR);
+//        }
+//        else {
+//            new_speed = DrivingPID(pid_params, settings.corner_speed, current_speed);
 
-            if (track_midpoint_idx < 64){                                     // Making a left turn
-                TIMER_A0_PWM_DutyCycle((new_speed - settings.inner_wheel_slowdown)/100.0, LEFT_MOTOR);  // Inner wheel
-                TIMER_A0_PWM_DutyCycle((new_speed+2.0)/100.0, RIGHT_MOTOR);   // Outer wheel
-            }
-            else {                                                            // Making a right turn
-                TIMER_A0_PWM_DutyCycle((new_speed+2.0)/100.0, LEFT_MOTOR);    // Outer wheel
-                TIMER_A0_PWM_DutyCycle((new_speed - settings.inner_wheel_slowdown)/100.0, RIGHT_MOTOR); // Inner wheel
-            }
-        }
+//            if (track_midpoint_idx < 64){                                     // Making a left turn
+//                TIMER_A0_PWM_DutyCycle((new_speed - settings.inner_wheel_slowdown)/100.0, LEFT_MOTOR);  // Inner wheel
+//                TIMER_A0_PWM_DutyCycle((new_speed+2.0)/100.0, RIGHT_MOTOR);   // Outer wheel
+//            }
+//            else {                                                            // Making a right turn
+//                TIMER_A0_PWM_DutyCycle((new_speed+2.0)/100.0, LEFT_MOTOR);    // Outer wheel
+//                TIMER_A0_PWM_DutyCycle((new_speed - settings.inner_wheel_slowdown)/100.0, RIGHT_MOTOR); // Inner wheel
+//            }
+//        }
 
-    }
-    else {  // not running -> stop driving
-        TIMER_A0_PWM_DutyCycle(0.0, LEFT_MOTOR);
-        TIMER_A0_PWM_DutyCycle(0.0, RIGHT_MOTOR);
-    }
+//    }
+//    else {  // not running -> stop driving
+//        TIMER_A0_PWM_DutyCycle(0.0, LEFT_MOTOR);
+//        TIMER_A0_PWM_DutyCycle(0.0, RIGHT_MOTOR);
+//    }
 
-    return new_speed;
-}
+//    return new_speed;
+//}
 
 double adjustDrivingContinuous(center_of_mass_t line_stats, pid_values_t pid_params, double current_speed, speed_settings settings){
-    int track_midpoint_idx;
-    int delta;
+    int track_midpoint_idx = 64;
+    int delta = 0;
     double new_speed = 0.0;
-    uint16_t desired;
+    double slowdown_scalar = 0.0;
+    double desired;
 
     if (running){
 
         track_midpoint_idx = line_stats.x;
-
-
-
-        if (line_stats.y == 16383){
-            desired = settings.straight_speed;  //  set desired speed to max speed
-        }
-        else if (line_stats.y < CARPET_THRESHOLD){
+        delta = 64-track_midpoint_idx;
+        
+        if (delta < 0)
+            delta = delta * -1;
+        
+        slowdown_scalar = ((double)delta)/7.0;
+        
+        if (line_stats.y < CARPET_THRESHOLD){
             desired = settings.corner_speed;
         }
         else{
-            desired = (uint16_t)(line_stats.y/16383) * settings.straight_speed;
+            desired = settings.straight_speed;
         }
+        
+        //desired = slowdown_scalar * desired;
+        desired = desired - (settings.max_corner_slowdown * slowdown_scalar);
+        
+        #ifdef USE_UART
+        sprintf(uart_tx_buffer, "delta = %d,   scale = %g,    desired = %g\n\r", delta, slowdown_scalar, desired);
+        uart0_put(uart_tx_buffer);
+        #endif 
+
+
+//        if (line_stats.y >= 16377){
+//            desired = settings.straight_speed;  //  set desired speed to max speed
+//        }
+//        else if (line_stats.y < CARPET_THRESHOLD){
+//            desired = settings.corner_speed;
+//        }
+//        else{
+//            desired = (((double)line_stats.y) / 16383.0) * settings.straight_speed;
+//        }
 
         new_speed = DrivingPID(pid_params, desired, current_speed);
 
 
-        if (line_stats.y == 16383){
+        if (delta == 0){
             TIMER_A0_PWM_DutyCycle(new_speed/100.0, LEFT_MOTOR);
             TIMER_A0_PWM_DutyCycle(new_speed/100.0, RIGHT_MOTOR);
         }
         else{
             if (track_midpoint_idx < 64){   //  making a left turn
                 TIMER_A0_PWM_DutyCycle((new_speed - settings.inner_wheel_slowdown)/100.0, LEFT_MOTOR);  // Inner wheel
-                TIMER_A0_PWM_DutyCycle((new_speed+2.0)/100.0, RIGHT_MOTOR);   // Outer wheel
-
+                TIMER_A0_PWM_DutyCycle((new_speed + 9.0)/100.0, RIGHT_MOTOR);   // Outer wheel
             }
             else {  //  Making a right turn
-                TIMER_A0_PWM_DutyCycle((new_speed+2.0)/100.0, LEFT_MOTOR);    // Outer wheel
+                TIMER_A0_PWM_DutyCycle((new_speed + 9.0)/100.0, LEFT_MOTOR);    // Outer wheel
                 TIMER_A0_PWM_DutyCycle((new_speed - settings.inner_wheel_slowdown)/100.0, RIGHT_MOTOR); // Inner wheel
             }
         }
@@ -363,8 +384,8 @@ int main(void){
       ki = 0.05
       kd = 0.0
     */
-    pid_values_t steering_pid = {0.10, 0.05, 0.05};
-    pid_values_t driving_pid = {0.1, 0.05, 0.0};
+    pid_values_t steering_pid = {0.63, 0.04, 0.22};
+    pid_values_t driving_pid = {0.35, 0.06, 0.14};
 
     /* Initializations */
     init();
@@ -381,48 +402,49 @@ int main(void){
      * turn running on and select that mode
      * turn LED off
      */
-    raceMode = Jog;  //  Jog will show up as first race mode
+    raceMode = Run;  //  Jog will show up as first race mode
     LED2_Off();
 
     for (;;){
+        switch (raceMode) {
+            case Jog:
+                LED2_Red();
+                speedSettings.straight_speed = 27.0;
+                speedSettings.corner_speed = 24.0;
+                speedSettings.inner_wheel_slowdown = 4.0;
+                speedSettings.max_corner_slowdown = 4.0;
+                break;
+            case Run:
+                LED2_Green();
+                // TODO: this is ugly but I don't know how to do reassignment like above
+                speedSettings.straight_speed = 35.0;
+                speedSettings.corner_speed = 28.0;
+                speedSettings.inner_wheel_slowdown = 6.0;
+                speedSettings.max_corner_slowdown = 10.0;
+                break;
+            case Sprint:
+                LED2_Blue();
+                speedSettings.straight_speed = 38.0;
+                speedSettings.corner_speed = 33.0;
+                speedSettings.inner_wheel_slowdown = 6.0;
+                speedSettings.max_corner_slowdown = 6.0;
+                break;
+            default:
+                LED2_Off();
+                break;
+        }
+        
         if (Switch1_Pressed()){
-            
             raceMode++;
             if (raceMode > 2)
                 raceMode = Jog;
-            
-            switch (raceMode) {
-                case Jog:
-                    LED2_Red();
-                    speedSettings.straight_speed = 30.0;
-                    speedSettings.corner_speed = 27.0;
-                    speedSettings.inner_wheel_slowdown = 4.0;
-                    break;
-                case Run:
-                    LED2_Green();
-                    // TODO: this is ugly but I don't know how to do reassignment like above
-                    speedSettings.straight_speed = 32.0;
-                    speedSettings.corner_speed = 29.0;
-                    speedSettings.inner_wheel_slowdown = 5.0;
-
-                    break;
-                case Sprint:
-                    LED2_Blue();
-                    speedSettings.straight_speed = 38.0;
-                    speedSettings.corner_speed = 35.0;
-                    speedSettings.inner_wheel_slowdown = 6.0;
-
-                    break;
-                default:
-                    LED2_Off();
-                    break;
-            }
-            
             while(Switch1_Pressed()){}
         }
+        
         else if (Switch2_Pressed()){
             LED2_Off();
             running = TRUE;
+            while(Switch2_Pressed()){}
             break;
         }
     }
@@ -436,7 +458,7 @@ int main(void){
         servo_position = adjustSteering(line_statistics, steering_pid);
         
         /* Adjust DC Motor speed */
-        motor_speed = adjustDriving(line_statistics, driving_pid, motor_speed, speedSettings);
+        motor_speed = adjustDrivingContinuous(line_statistics, driving_pid, motor_speed, speedSettings);
 
         /* Check for track loss or intersection */
         if (isOffTrack(line_statistics.y))
@@ -445,12 +467,21 @@ int main(void){
             track_loss_counter = 0;     //  if on track, reset counter to zero
 
         /* Carpet detection reached limit */
-        if (track_loss_counter > TRACK_LOSS_LIMIT){ running = FALSE; }
+        if (track_loss_counter > TRACK_LOSS_LIMIT){
+            running = FALSE;
+        }
+        else if (Switch2_Pressed()){    // Re-enable car into the previously selected mode
+            track_loss_counter = 0;
+            LED2_Yellow();
+            while(Switch2_Pressed()){}
+            LED2_Off();
+            running = TRUE;
+        }
 
         #ifdef USE_UART
             //sprintf(uart_tx_buffer, "servo: %g;  left line idx:  %d;  right line idx:  %d;\n\r", servo_position, line_statistics.left_slope_index, line_statistics.right_slope_index);
-            sprintf(uart_tx_buffer, "Center of Mass:   %u,    Y = %u\n\r", line_statistics.x, line_statistics.y);
-            uart2_put(uart_tx_buffer);
+            //sprintf(uart_tx_buffer, "Motor Speed = %g,   Y = %d\n\r", motor_speed, line_statistics.y);
+            //uart0_put(uart_tx_buffer);
             //uart2_put(uart_tx_buffer);
         #endif
 

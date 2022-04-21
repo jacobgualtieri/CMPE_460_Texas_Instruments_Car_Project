@@ -49,8 +49,9 @@ void FindCenterOfMass(uint16_t* smoothed_line, center_of_mass_t* stat_collection
  */
 void MovingAverage(uint16_t* line_data, uint16_t* smoothed_line){
     uint16_t avg;    // 7 point average value
+    int i = 3;
 
-    for(int i = 3; i < 125; i++){
+    for(i = 3; i < 125; i++){
         avg = line_data[i+3]/7 + line_data[i+2]/7 + line_data[i+1]/7 + line_data[i]/7 + line_data[i-1]/7 + line_data[i-2]/7 + line_data[i-3]/7;
         smoothed_line[i] = avg;
     }
