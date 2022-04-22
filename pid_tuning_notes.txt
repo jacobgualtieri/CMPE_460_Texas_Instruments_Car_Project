@@ -1,0 +1,56 @@
+
+// testing on track with left turns first in turn sequences
+
+kp
+.5 	-	decent, turn in is late, oscillations on straights
+.45	-	slightly better, slightly better turn in on most turns
+.4	-	solid on a handful of turns, went off track on a couple turns
+---------------------------------------------------------------------
+.35	-	seemed a lot better on turns	-----> best case!!!!
+---------------------------------------------------------------------
+.3	-	not better, seemed like more oscillations on the straight
+.25	-	not bad, very slow on combined turns
+.1	-	seemed promising, oscillations on straights
+.09	-	better than before, slightly less oscillations
+.08	-	better, still oscillations
+.07	-	no visible change
+.06	-	no visible change
+.05	-	a lot better, still oscillations, but faster in straights and turns
+.04	-	similar, slightly crazy on turns
+.041-	slightly better around turns
+.042-	less oscillation on straight
+.043-	worse on straights, more oscillations
+.044-	
+
+=====================================================================
+kd
+**** All of these were done with kp = .35
+.01	-	seemed bad
+.02	-	
+.1	-	very slow around turns, same oscillation, late turn in
+.15	-	smoother turn in, turned too hard at the end of a turn, better...
+.2	-	later turn ins but seemed similar
+.25	-	visibly slower on turns, still late turn ins
+.3	-	more oscillations on straight, still bad turn in, ran off track
+.35	-	seems decent, sometimes there's big oscillations on straights
+.4	-	same as before
+.45	-	slightly better through intersection, slow through super s turn
+.5	-	worse
+.55	-	visibly garbage
+
+======================================================================
+adjusted divisor to 42
+**** All of these were done with kp = .35
+kd
+.05	-	seemed to be better on turn ins, still oscillation
+.07	-	seemed better around turns, still oscillations but slightly better
+
+
+
+
+
+
+
+
+
+change divisor to 45 for slightly less turn vibration
