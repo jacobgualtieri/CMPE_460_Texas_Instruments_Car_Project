@@ -1,7 +1,11 @@
 race day notes:
 
 -	adjust carpet threshold for lighting
+
 -	we could adjust the gain of the low pass smoothing filter if the max y values seem too low
+
+-	increase carpet counter because we don't care if the car runs off the track.
+		-> we don't want the car stopping while running its lap
 
 
 
