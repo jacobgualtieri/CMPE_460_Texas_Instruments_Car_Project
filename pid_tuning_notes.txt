@@ -20,7 +20,22 @@ kp
 .041-	slightly better around turns
 .042-	less oscillation on straight
 .043-	worse on straights, more oscillations
-.044-	
+.044-	slightly better
+.045-	ran off track
+.03	-	ran off track, turned left through intersection, turns seemed less sharp
+.02	-	still messed up intersection, ran off track, turns less sharp
+.01	-	seemed to have less oscillations,
+.009-	slightly better
+.008-	seemed worse, but not much
+.007-	no change
+.006-	better into intersection
+.005-	not visibly better
+.004-	not better
+.003-	not better 
+.002-	not better
+.001-	
+
+
 
 =====================================================================
 kd
@@ -47,10 +62,20 @@ kd
 
 
 
-
-
-
-
-
-
 change divisor to 45 for slightly less turn vibration
+
+
+.11
+.105
+.1
+
+
+
+
+#####################################################################
+
+kp testing after figuring out steering angles
+.02	-	very good, not resistant to change, full left and right
+.01	-	fast and straight in straights, big oscillations
+.002-	slight changes in turns during straights, able to correct after big oscillations
+.004-	better than before
