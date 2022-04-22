@@ -79,3 +79,26 @@ kp testing after figuring out steering angles
 .01	-	fast and straight in straights, big oscillations
 .002-	slight changes in turns during straights, able to correct after big oscillations
 .004-	better than before
+
+
+
+
+
+
+
+
+
+
+
+
+
+servo position:
+
+
+.0735	-	no movement
+.073	-	nothing
+.0725	-	nothing
+.072	-	slow to full right (a little too far) and high pitch noise/squealing
+.0722	-	nothing
+.0723	-	nothing
+.0721	-	slow to full right, high pitched noise/squealing
