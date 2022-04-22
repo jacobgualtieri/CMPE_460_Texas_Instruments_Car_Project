@@ -24,6 +24,7 @@
 
 /* Testing and debugging */
 //#define USE_OLED
+
 //#define USE_UART
 //#define TEST_OLED
 
@@ -34,8 +35,7 @@
 #define CENTER_POSITION 0.075   //  Center position of servo
 
 /* Directional Thresholds */
-#define RIGHT_IDX_OFFSET 2  //  Shift used to account for camera mounting
-#define LEFT_TURN_OFFSET 3
+#define LEFT_TURN_OFFSET 0
 
 /* Speed Settings */
 #define STRAIGHTS_SPEED     30.0    //  desired speed in the straight
@@ -49,7 +49,7 @@
 #define RIGHT_MOTOR 4
 
 /* Track Loss Limit */
-#define TRACK_LOSS_LIMIT 8  // Stop limit if off track
+#define TRACK_LOSS_LIMIT 12  // Stop limit if off track
 #define CARPET_THRESHOLD 10500   // any y value lower than this means the car is off track
 
 #ifdef USE_OLED
@@ -77,6 +77,7 @@ typedef struct speed_settings {
     double straight_speed;
     double corner_speed;
     double inner_wheel_slowdown;
+    double outer_wheel_speedup;
     double max_corner_slowdown;
 } speed_settings;
 
@@ -113,7 +114,7 @@ void initSteering(void){
  * values of the derivative (slope) of the input data
  * @return new servo position
  */
-double adjustSteering(center_of_mass_t line_stats, pid_values_t pid_params){
+void adjustSteering(center_of_mass_t line_stats, pid_values_t pid_params){
     double servo_position;
     int track_midpoint_idx;
     int delta;
@@ -128,18 +129,22 @@ double adjustSteering(center_of_mass_t line_stats, pid_values_t pid_params){
     if (delta == 0)
         servo_position = CENTER_POSITION;
     else
-        servo_position = CENTER_POSITION + (((double)delta / 64.0) * CENTER_POSITION);
+        //servo_position = CENTER_POSITION + (((double)delta / 44.0) * CENTER_POSITION);
+        servo_position = CENTER_POSITION + (((double)delta / 23.6) * CENTER_POSITION);
+    
+    #ifdef USE_UART
+        sprintf(uart_tx_buffer, "delta = %d,   servo = %g\n\r", delta, servo_position);
+        uart2_put(uart_tx_buffer);
+    #endif 
     
     // Prevent control loop from exceeding servo range
-    if (servo_position < FULL_RIGHT)
-        servo_position = FULL_RIGHT;
-    else if (FULL_LEFT < servo_position)
-        servo_position = FULL_LEFT;
+//    if (servo_position < FULL_RIGHT)
+//        servo_position = FULL_RIGHT;
+//    else if (FULL_LEFT < servo_position)
+//        servo_position = FULL_LEFT;
 
     servo_position = SteeringPID(pid_params, CENTER_POSITION, servo_position);
     TIMER_A2_PWM_DutyCycle(servo_position, 1);  // set new servo position
-    
-    return servo_position;
 }
 
 /**
@@ -241,18 +246,20 @@ double adjustDrivingContinuous(center_of_mass_t line_stats, pid_values_t pid_par
         slowdown_scalar = ((double)delta)/7.0;
         
         if (line_stats.y < CARPET_THRESHOLD){
+            //desired = settings.corner_speed;
             desired = settings.corner_speed;
+            slowdown_scalar = slowdown_scalar * 1.5;
         }
         else{
             desired = settings.straight_speed;
+            slowdown_scalar = slowdown_scalar;
         }
         
-        //desired = slowdown_scalar * desired;
         desired = desired - (settings.max_corner_slowdown * slowdown_scalar);
         
         #ifdef USE_UART
-        sprintf(uart_tx_buffer, "delta = %d,   scale = %g,    desired = %g\n\r", delta, slowdown_scalar, desired);
-        uart0_put(uart_tx_buffer);
+        //sprintf(uart_tx_buffer, "delta = %d,   scale = %g,    desired = %g\n\r", delta, slowdown_scalar, desired);
+        //uart0_put(uart_tx_buffer);
         #endif 
 
 
@@ -276,10 +283,10 @@ double adjustDrivingContinuous(center_of_mass_t line_stats, pid_values_t pid_par
         else{
             if (track_midpoint_idx < 64){   //  making a left turn
                 TIMER_A0_PWM_DutyCycle((new_speed - settings.inner_wheel_slowdown)/100.0, LEFT_MOTOR);  // Inner wheel
-                TIMER_A0_PWM_DutyCycle((new_speed + 9.0)/100.0, RIGHT_MOTOR);   // Outer wheel
+                TIMER_A0_PWM_DutyCycle((new_speed + settings.outer_wheel_speedup)/100.0, RIGHT_MOTOR);   // Outer wheel
             }
             else {  //  Making a right turn
-                TIMER_A0_PWM_DutyCycle((new_speed + 9.0)/100.0, LEFT_MOTOR);    // Outer wheel
+                TIMER_A0_PWM_DutyCycle((new_speed + settings.outer_wheel_speedup)/100.0, LEFT_MOTOR);    // Outer wheel
                 TIMER_A0_PWM_DutyCycle((new_speed - settings.inner_wheel_slowdown)/100.0, RIGHT_MOTOR); // Inner wheel
             }
         }
@@ -371,7 +378,6 @@ void init(void){
 int main(void){
     center_of_mass_t line_statistics;   // stats of camera data
     int track_loss_counter = 0;     // off track counter
-    double servo_position = 0.075;  // current position of servo
     double motor_speed = 20.0;
     enum raceMode{Jog = 0, Run = 1, Sprint = 2} raceMode;
     // start with sprint speed settings
@@ -384,8 +390,10 @@ int main(void){
       ki = 0.05
       kd = 0.0
     */
-    pid_values_t steering_pid = {0.63, 0.04, 0.22};
-    pid_values_t driving_pid = {0.35, 0.06, 0.14};
+    //pid_values_t steering_pid = {0.45, 0.03, 0.3};
+    //pid_values_t steering_pid = {0.08, 0.0, 0.0};
+    pid_values_t steering_pid = {0.006, 0.0, 0.0};
+    pid_values_t driving_pid = {0.32, 0.06, 0.14};
 
     /* Initializations */
     init();
@@ -409,25 +417,28 @@ int main(void){
         switch (raceMode) {
             case Jog:
                 LED2_Red();
-                speedSettings.straight_speed = 27.0;
-                speedSettings.corner_speed = 24.0;
-                speedSettings.inner_wheel_slowdown = 4.0;
-                speedSettings.max_corner_slowdown = 4.0;
+                speedSettings.straight_speed = 35.0;
+                speedSettings.corner_speed = 28.0;
+                speedSettings.inner_wheel_slowdown = 5.0;
+                speedSettings.outer_wheel_speedup = 8.0;
+                speedSettings.max_corner_slowdown = 12.0;
                 break;
             case Run:
                 LED2_Green();
                 // TODO: this is ugly but I don't know how to do reassignment like above
-                speedSettings.straight_speed = 35.0;
-                speedSettings.corner_speed = 28.0;
-                speedSettings.inner_wheel_slowdown = 6.0;
-                speedSettings.max_corner_slowdown = 10.0;
+                speedSettings.straight_speed = 38.0;
+                speedSettings.corner_speed = 33.0;
+                speedSettings.inner_wheel_slowdown = 4.0;
+                speedSettings.outer_wheel_speedup = 8.0;
+                speedSettings.max_corner_slowdown = 12.0;
                 break;
             case Sprint:
                 LED2_Blue();
-                speedSettings.straight_speed = 38.0;
-                speedSettings.corner_speed = 33.0;
-                speedSettings.inner_wheel_slowdown = 6.0;
-                speedSettings.max_corner_slowdown = 6.0;
+                speedSettings.straight_speed = 40.0;
+                speedSettings.corner_speed = 35.0;
+                speedSettings.inner_wheel_slowdown = 4.0;
+                speedSettings.outer_wheel_speedup = 8.0;
+                speedSettings.max_corner_slowdown = 12.0;
                 break;
             default:
                 LED2_Off();
@@ -455,7 +466,7 @@ int main(void){
         line_statistics = parseCameraData(line, smoothed_line);
 
         /* Adjust steering direction */
-        servo_position = adjustSteering(line_statistics, steering_pid);
+        adjustSteering(line_statistics, steering_pid);
         
         /* Adjust DC Motor speed */
         motor_speed = adjustDrivingContinuous(line_statistics, driving_pid, motor_speed, speedSettings);
@@ -480,7 +491,7 @@ int main(void){
 
         #ifdef USE_UART
             //sprintf(uart_tx_buffer, "servo: %g;  left line idx:  %d;  right line idx:  %d;\n\r", servo_position, line_statistics.left_slope_index, line_statistics.right_slope_index);
-            //sprintf(uart_tx_buffer, "Motor Speed = %g,   Y = %d\n\r", motor_speed, line_statistics.y);
+            //sprintf(uart_tx_buffer, "X = %d,   Y = %d\n\r", line_statistics.x, line_statistics.y);
             //uart0_put(uart_tx_buffer);
             //uart2_put(uart_tx_buffer);
         #endif
