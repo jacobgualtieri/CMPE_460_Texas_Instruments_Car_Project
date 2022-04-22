@@ -1,0 +1,16 @@
+race day notes:
+
+-	adjust carpet threshold for lighting
+-	we could adjust the gain of the low pass smoothing filter if the max y values seem too low
+
+
+
+Saturday:
+
+1100 track set
+1100-1330 practice time
+1330 Bring cars to table, no more modifications allows
+1400 race starts
+	-	allowed to change battery
+	-	allowed to press buttons
+	-	allowed to clean wheels
