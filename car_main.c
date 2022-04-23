@@ -295,27 +295,26 @@ void ChooseRaceSettings(speed_settings* settings){
             case Jog:
                 LED2_Red();
                 settings->straight_speed = 35.0;
-                settings->corner_speed = 28.0;
-                settings->inner_wheel_slowdown = 5.0;
-                settings->outer_wheel_speedup = 8.0;
-                settings->max_corner_slowdown = 12.0;
+                settings->corner_speed = 32.5;
+                settings->inner_wheel_slowdown = 3.0;
+                settings->outer_wheel_speedup = 10.0;
+                settings->max_corner_slowdown = 11.0;
                 break;
             case Run:
                 LED2_Green();
-                // TODO: this is ugly but I don't know how to do reassignment like above
-                settings->straight_speed = 38.0;
-                settings->corner_speed = 32.0;
+                settings->straight_speed = 40.5;
+                settings->corner_speed = 32.5;
                 settings->inner_wheel_slowdown = 4.0;
-                settings->outer_wheel_speedup = 8.0;
+                settings->outer_wheel_speedup = 10.0;
                 settings->max_corner_slowdown = 13.0;
                 break;
             case Sprint:
                 LED2_Blue();
-                settings->straight_speed = 40.0;
-                settings->corner_speed = 35.0;
-                settings->inner_wheel_slowdown = 4.0;
-                settings->outer_wheel_speedup = 8.0;
-                settings->max_corner_slowdown = 12.0;
+                settings->straight_speed = 44.5;
+                settings->corner_speed = 32.5;
+                settings->inner_wheel_slowdown = 5.0;
+                settings->outer_wheel_speedup = 10.0;
+                settings->max_corner_slowdown = 14.5;
                 break;
             default:
                 LED2_Off();
@@ -386,8 +385,8 @@ int main(void){
     //pid_values_t steering_pid = {0.45, 0.03, 0.3};
     //pid_values_t steering_pid = {0.08, 0.0, 0.0};
     //pid_values_t steering_pid = {0.006, 0.0, 0.0};
-    pid_values_t steering_pid = {0.0055, 0.02, 0.04};
-    pid_values_t driving_pid = {0.32, 0.06, 0.14};
+    pid_values_t steering_pid = {0.005, 0.025, 0.045};
+    pid_values_t driving_pid = {0.32, 0.06, 0.148};
 
     /* Initializations */
     init();
