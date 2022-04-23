@@ -1,20 +1,86 @@
-race day notes:
+#####################################################
+#
+#	Checklist
+#
+#
+#####################################################
+	
+	-	verify that the current camera angle is the best
+	
+	-	check camera mount screws
+		-> crank those bad boys tight AF
+	
+	-	check all wheel screws:
+		-> front wheel screws
+		-> rear wheel screws, axles, etc.
+		
+		
+	-	check tension on both rear motor gears with wheel gears
+		-> check gear alignment to make sure the axle isn't backed out
+		
 
--	adjust carpet threshold for lighting
+	-	adjust carpet threshold for lighting
+		-> adjust low pass filter gain if needed
+		
+		
+	-	increase carpet count to something stupid high
+		-> we don't want the car to accidentally stop on a turn
+		
+	-	set slow speed to something moderate but still slightly fast. 
+		*** our slow mode still has to be fast to compete with everyone else's slow mode
+		
+		
+	-	medium mode should be the fastest you've been able to run the car minus 1 or 2 
+		to keep it somewhat safe
+		
+	-	fast mode should be super fast
+		-> right on the edge of too fast and going off track, but not too many crazy turning errors
 
--	we could adjust the gain of the low pass smoothing filter if the max y values seem too low
-
--	increase carpet counter because we don't care if the car runs off the track.
-		-> we don't want the car stopping while running its lap
 
 
+#####################################################
+#
+#	Race Day Schedule
+#
+#
+#####################################################
 
-Saturday:
+1100:		track set
 
-1100 track set
-1100-1330 practice time
-1330 Bring cars to table, no more modifications allows
+1100-1330:	practice time
+
+1330:		Bring cars to table 
+			no more modifications allowed
+			
 1400 race starts
 	-	allowed to change battery
 	-	allowed to press buttons
 	-	allowed to clean wheels
+	
+	
+#####################################################
+#
+#	Race Day Strategy
+#
+#
+#####################################################
+
+	- for each attempt:
+		-> 	secure battery with tape covering both ends of the car frame
+			so the battery can't slip out
+		
+		-> 	wipe wheels down & let them dry
+		->	put fully charged battery in car
+
+
+
+	- attempt 1: run fast mode -> just send it
+	
+	- attempt 2: if minor error on fast mode, run it again
+				 else: run medium mode
+	
+	- attempt 3: if minor error on medium mode, run it again
+				 else: run slow mode
+	
+	
+	
